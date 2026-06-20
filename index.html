@@ -542,7 +542,6 @@
         ]
     };
 
-    // --- DATA KATEGORI LINK (GROUPING) ---
     const linkGroups = {
         'input': {
             title: 'Input Laporan Kinerja',
@@ -589,7 +588,6 @@
     let searchTimeout;
     let userLocation = null; 
 
-    // KODE RAHASIA UNTUK QR UMUM KANTOR
     const GENERAL_QR_CODE = "EJAKA_GENERAL_ABSENSI_2026";
 
     // === INIT & FAST CACHING ===
@@ -602,25 +600,31 @@
     }
 
     async function loadData() {
-        const cachedData = localStorage.getItem('eJakaData');
         let currentTab = 'home';
         
-        if (cachedData) {
-            const parsed = JSON.parse(cachedData);
-            state = { ...state, ...parsed };
-            
-            const currentBtn = document.querySelector('.nav-btn.active') || document.querySelector('.menu-link.active');
-            if(currentBtn) {
-               if(currentBtn.innerText.toLowerCase().includes('jadwal')) currentTab = 'calendar';
-               else if(currentBtn.innerText.toLowerCase().includes('scan')) currentTab = 'scan';
-               else if(currentBtn.innerText.toLowerCase().includes('admin')) currentTab = 'admin';
-               else if(currentBtn.innerText.toLowerCase().includes('direktori')) currentTab = 'profile';
+        try {
+            const cachedData = localStorage.getItem('eJakaData');
+            if (cachedData) {
+                const parsed = JSON.parse(cachedData);
+                state = { ...state, ...parsed };
+                
+                const currentBtn = document.querySelector('.nav-btn.active') || document.querySelector('.menu-link.active');
+                if(currentBtn) {
+                   if(currentBtn.innerText.toLowerCase().includes('jadwal')) currentTab = 'calendar';
+                   else if(currentBtn.innerText.toLowerCase().includes('scan')) currentTab = 'scan';
+                   else if(currentBtn.innerText.toLowerCase().includes('admin')) currentTab = 'admin';
+                   else if(currentBtn.innerText.toLowerCase().includes('direktori')) currentTab = 'profile';
+                }
+                if(!document.getElementById('main-content').innerHTML) {
+                    navigateTo(currentTab); 
+                }
+            } else {
+                showLoading(true); 
             }
-            if(!document.getElementById('main-content').innerHTML) {
-                navigateTo(currentTab); 
-            }
-        } else {
-            showLoading(true); 
+        } catch (e) {
+            console.error("Cache korup, menghapus data lokal...", e);
+            localStorage.removeItem('eJakaData');
+            showLoading(true);
         }
 
         try {
@@ -776,9 +780,9 @@
 
             let waLink = "#";
             if(korlap && korlap.phone) {
-                let cleanPhone = korlap.phone.toString().replace(/\D/g, '');
-                if (cleanPhone.startsWith('0')) cleanPhone = '62' + cleanPhone.substring(1);
-                waLink = `https://wa.me/${cleanPhone}`;
+                let cleanPhone = korlap.phone ? String(korlap.phone).replace(/\D/g, '') : '';
+                if (cleanPhone && cleanPhone.startsWith('0')) cleanPhone = '62' + cleanPhone.substring(1);
+                waLink = cleanPhone ? `https://wa.me/${cleanPhone}` : '#';
             }
 
             return `
@@ -900,9 +904,9 @@
                 const photo = e.photo || `https://ui-avatars.com/api/?name=${e.name}&background=random`;
                 let waButton = `<a href="#" class="btn-wa disabled"><i class="fa-brands fa-whatsapp" style="font-size:1.4rem;"></i></a>`;
                 if (e.phone) {
-                    let cleanPhone = e.phone.toString().replace(/\D/g, '');
-                    if (cleanPhone.startsWith('0')) cleanPhone = '62' + cleanPhone.substring(1);
-                    waButton = `<a href="https://wa.me/${cleanPhone}" target="_blank" class="btn-wa" title="Hubungi"><i class="fa-brands fa-whatsapp" style="font-size:1.4rem;"></i></a>`;
+                    let cleanPhone = e.phone ? String(e.phone).replace(/\D/g, '') : '';
+                    if (cleanPhone && cleanPhone.startsWith('0')) cleanPhone = '62' + cleanPhone.substring(1);
+                    waButton = cleanPhone ? `<a href="https://wa.me/${cleanPhone}" target="_blank" class="btn-wa" title="Hubungi"><i class="fa-brands fa-whatsapp" style="font-size:1.4rem;"></i></a>` : waButton;
                 }
                 return `<div class="person-card-item"><div class="person-left"><img src="${photo}" class="person-img" loading="lazy"><div class="person-details"><h4>${e.name}</h4><span class="person-role">${e.role || 'Anggota'}</span></div></div><div class="person-right"><div class="shift-badge">${e.time.split('-')[0]}</div>${waButton}</div></div>`;
             }).join('');
@@ -1675,25 +1679,14 @@
     function delEmp(id) { if(confirm("Hapus?")) { state.employees = state.employees.filter(x => x.id != id); saveData().then(() => renderAdmin(document.getElementById('main-content'))); } }
     
     async function generateScheduleLogic() {
-        const date = document.getElementById('genDate').value; 
-        const days = parseInt(document.getElementById('genDays').value); 
+        const date = document.getElementById('genDate').value; const days = parseInt(document.getElementById('genDays').value); 
         if(!date) return alert("Pilih Tanggal!");
-        
-        let pool = [...state.employees]
-            .filter(e => e.status !== 'Non-Aktif')
-            .sort((a,b)=>(a.lastDuty||'').localeCompare(b.lastDuty||''));
-            
-        let curr = new Date(date); 
-        let idx = 0;
-        
+        let pool = [...state.employees].filter(e => e.status !== 'Non-Aktif').sort((a,b)=>(a.lastDuty||'').localeCompare(b.lastDuty||''));
+        let curr = new Date(date); let idx = 0;
         if(pool.length === 0) return alert("Tidak ada pegawai aktif untuk dijadwalkan!");
-
         for(let i=0; i<days; i++) {
-            const dStr = curr.toISOString().split('T')[0]; 
-            const day = curr.getDay(); 
-            state.schedule[dStr] = { shifts: [] };
+            const dStr = curr.toISOString().split('T')[0]; const day = curr.getDay(); state.schedule[dStr] = { shifts: [] };
             const slots = (day===0||day===6) ? ['06:00-12:00','12:00-18:00','16:00-07:00','16:00-07:00'] : ['16:00-07:00','16:00-07:00'];
-            
             slots.forEach(time => { 
                 if(idx >= pool.length) idx=0; 
                 const emp = pool[idx]; 
@@ -1704,12 +1697,30 @@
             });
             curr.setDate(curr.getDate()+1);
         }
-        await saveData(); 
-        renderAdmin(document.getElementById('main-content')); 
-        alert("Jadwal Selesai Dibuat!");
+        await saveData(); renderAdmin(document.getElementById('main-content')); alert("Jadwal Selesai Dibuat!");
     }
 
-    // --- INTEGRASI LOGIN SERVER-SIDE (KEAMANAN PIN) ---
+    function toggleAdmin() { if(!state.isAdmin) document.getElementById('login-modal').style.display = 'flex'; else logout(); }
+    
+    async function handleLogin() { 
+        const pinInput = document.getElementById('admin-pass').value;
+        if(!pinInput) return alert("Masukkan PIN!");
+        showLoading(true);
+        try {
+            const payload = { action: 'verifyPin', pin: pinInput };
+            const res = await fetch(SCRIPT_URL, { method: 'POST', body: JSON.stringify(payload) });
+            const result = await res.json();
+            if (result.status === 'Sukses') { state.isAdmin = true; localStorage.setItem('isAdmin', 'true'); updateToggleUI(); closeModal('login-modal'); navigateTo('admin'); } 
+            else { alert(result.message); }
+        } catch(e) { alert("Gagal terhubung ke server. Periksa koneksi atau URL Apps Script."); } finally { showLoading(false); }
+    }
+
+    function logout() { state.isAdmin = false; localStorage.removeItem('isAdmin'); updateToggleUI(); navigateTo('home'); }
+    function updateToggleUI() { const circle = document.getElementById('toggle-circle'); if(state.isAdmin) { circle.style.left = '22px'; circle.style.background = '#4ADE80'; } else { circle.style.left = '2px'; circle.style.background = 'white'; } }
+    function showLoading(show) { document.getElementById('loading-modal').style.display = show ? 'flex' : 'none'; }
+    function closeModal(id) { document.getElementById(id).style.display = 'none'; if(id==='result-modal') navigateTo('scan'); }
+    
+    window.addEventListener('DOMContentLoaded', init);
 </script>
 </body>
 </html>
