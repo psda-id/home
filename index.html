@@ -7,6 +7,11 @@
     
     <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/all.min.css">
+    
+    <!-- Tambahan: Library Peta Leaflet.js -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
     <script src="https://unpkg.com/html5-qrcode" type="text/javascript"></script>
     
     <style>
@@ -348,11 +353,19 @@
         .hol-date { font-weight: 800; color: #B91C1C; }
         .hol-desc { font-size: 0.9rem; color: #7F1D1D; }
 
-        /* --- 9. SCANNER STYLES --- */
-        #reader { width: 100%; border-radius: 20px; overflow: hidden; border: 2px solid var(--border); background: black; }
+        /* --- 9. SCANNER STYLES & CAMERA UI OVERRIDES --- */
+        #reader { width: 100%; border: none !important; border-radius: 20px; overflow: hidden; background: #F8FAFC; box-shadow: inset 0 0 0 1px var(--border); }
+        #reader button { background-color: var(--primary) !important; color: white !important; border: none !important; padding: 10px 16px !important; border-radius: 10px !important; font-weight: 700 !important; cursor: pointer !important; transition: 0.2s !important; margin: 5px !important; font-family: 'Plus Jakarta Sans', sans-serif !important; }
+        #reader button:hover { background-color: var(--primary-dark) !important; }
+        #reader select { padding: 10px !important; border-radius: 10px !important; border: 1px solid var(--border) !important; font-family: inherit !important; outline: none !important; margin: 5px !important; max-width: 90%; }
+        #reader__dashboard_section_csr span { color: var(--danger) !important; }
+        
         .recent-scan-list { margin-top: 20px; }
         .scan-item { display: flex; align-items: center; justify-content: space-between; padding: 12px; background: white; border-radius: 12px; margin-bottom: 8px; border: 1px solid var(--border); }
         .scan-time { font-weight: 700; color: var(--primary); font-size: 0.9rem; }
+        
+        /* Map Container Custom Style */
+        #scan-map { width: 100%; height: 250px; border-radius: 16px; margin-bottom: 20px; border: 2px solid var(--border); z-index: 10; display: none; }
 
         /* --- UPDATE TAMPILAN DIREKTORI (FOTO 2x3 POPOUT) --- */
         .dir-grid { 
@@ -953,7 +966,9 @@
             return;
         }
         
+        // Membersihkan resource kamera & peta ketika pindah halaman
         if(html5QrcodeScanner) { html5QrcodeScanner.clear(); html5QrcodeScanner = null; } 
+        if(window.scanMap) { window.scanMap.remove(); window.scanMap = null; }
 
         document.querySelectorAll('.menu-link, .nav-btn').forEach(el => el.classList.remove('active'));
         const map = { home:0, calendar:1, scan:2, admin:3, profile:4 };
@@ -1452,6 +1467,9 @@
                 <i class="fa-solid fa-location-dot fa-fade" style="font-size:1.2rem;"></i> Menganalisa titik koordinat (GPS)...
             </div>
 
+            <!-- PETA LIVE (LEAFLET.JS) -->
+            <div id="scan-map"></div>
+
             <div class="card" id="reader-container" style="padding:0; overflow:hidden; border:none; display:none; border-radius:20px; box-shadow:0 10px 30px rgba(0,0,0,0.15);">
                 <div id="reader"></div>
             </div>
@@ -1485,10 +1503,12 @@
     function startScanner() {
         const gpsStatus = document.getElementById('gps-status');
         const readerContainer = document.getElementById('reader-container');
+        const mapDiv = document.getElementById('scan-map');
         
         // 1. Cek apakah Admin sudah mengatur koordinat Geofencing
         if (!state.instansi.lat || !state.instansi.lng || !state.instansi.radius) {
             gpsStatus.style.display = 'none'; // Sembunyikan notif GPS karena tidak diwajibkan
+            mapDiv.style.display = 'none'; // Peta tidak perlu dimunculkan
             readerContainer.style.display = 'block';
             initHtml5Qrcode();
             return;
@@ -1506,8 +1526,42 @@
 
                     // Hitung Jarak
                     const distance = getDistanceFromLatLonInKm(userLocation.lat, userLocation.lng, targetLat, targetLng);
+                    
+                    // Render Peta (Leaflet.js)
+                    mapDiv.style.display = 'block';
+                    if (window.scanMap) {
+                        window.scanMap.remove(); // Bersihkan peta jika sebelumnya sudah dirender
+                    }
+                    
+                    window.scanMap = L.map('scan-map').setView([userLocation.lat, userLocation.lng], 16);
+                    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                        attribution: '© OpenStreetMap'
+                    }).addTo(window.scanMap);
+                    
+                    // Gambar area wajib absen (Target Circle)
+                    const isInside = distance <= radiusMaksimal;
+                    const circleColor = isInside ? '#10B981' : '#EF4444'; // Hijau jika masuk, Merah jika di luar
+                    
+                    const targetCircle = L.circle([targetLat, targetLng], {
+                        color: circleColor,
+                        fillColor: circleColor,
+                        fillOpacity: 0.2,
+                        radius: radiusMaksimal
+                    }).addTo(window.scanMap);
+                    
+                    // Marker posisi pegawai saat ini
+                    const userMarker = L.marker([userLocation.lat, userLocation.lng]).addTo(window.scanMap);
+                    userMarker.bindPopup("<b>Posisi Anda</b><br>Jarak: " + Math.round(distance) + " Meter").openPopup();
+                    
+                    // Zoom peta agar memuat lingkaran dan marker sekaligus
+                    const group = new L.featureGroup([targetCircle, userMarker]);
+                    window.scanMap.fitBounds(group.getBounds().pad(0.2));
+                    
+                    // Hack rendering UI (mencegah grey box pada Leaflet)
+                    setTimeout(() => { window.scanMap.invalidateSize(); }, 300);
 
-                    if (distance <= radiusMaksimal) {
+                    // Validasi Akses Kamera
+                    if (isInside) {
                         // SUKSES: Di dalam area
                         gpsStatus.innerHTML = `<i class="fa-solid fa-circle-check"></i> Sinyal GPS Kuat. Anda berada di area kantor (${Math.round(distance)} meter).`;
                         gpsStatus.style.background = '#DCFCE7';
@@ -1878,6 +1932,7 @@
 
     async function saveInstansi() {
         state.instansi = {
+            ...state.instansi, // <--- INI KUNCI AGAR DATA LAMA (TERMASUK admin_pin) TIDAK HILANG
             nama: document.getElementById('ins-nama').value,
             alamat: document.getElementById('ins-alamat').value,
             kepala: document.getElementById('ins-kepala').value,
