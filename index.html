@@ -915,18 +915,23 @@
     async function saveData() {
         showLoading(true);
         try {
+            // --- FIX LOKASI: Tambahkan tanda kutip agar Google Sheets (format Indonesia) tidak menghapus titik desimal ---
+            let instansiPayload = { ...state.instansi };
+            if (instansiPayload.lat) instansiPayload.lat = "'" + String(instansiPayload.lat).replace(/,/g, '.');
+            if (instansiPayload.lng) instansiPayload.lng = "'" + String(instansiPayload.lng).replace(/,/g, '.');
+
             const payload = { 
                 action: 'save', 
                 data: { 
                     employees: state.employees, 
                     schedule: state.schedule,
                     holidays: state.holidays,
-                    instansi: state.instansi
+                    instansi: instansiPayload
                 } 
             };
             await fetch(SCRIPT_URL, { method: 'POST', body: JSON.stringify(payload) });
             
-            // Perbarui cache lokal agar sinkron dengan server
+            // Perbarui cache lokal agar sinkron dengan server (Simpan yang asli ke lokal)
             localStorage.setItem('eJakaData', JSON.stringify({
                 employees: state.employees,
                 schedule: state.schedule,
@@ -1472,8 +1477,7 @@
         const dLat = (lat2-lat1) * (Math.PI/180);
         const dLon = (lon2-lon1) * (Math.PI/180); 
         const a = Math.sin(dLat/2) * Math.sin(dLat/2) +
-                  Math.cos(lat1 * (Math.PI/180)) * Math.cos(lat2 * (Math.PI/180)) * 
-                  Math.sin(dLon/2) * Math.sin(dLon/2); 
+                  Math.cos(lat1 * (Math.PI/180)) * Math.cos(lat2 * (Math.PI/180)) * Math.sin(dLon/2) * Math.sin(dLon/2); 
         const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a)); 
         return R * c * 1000; // Konversi ke Meter
     }
@@ -1879,8 +1883,8 @@
             kepala: document.getElementById('ins-kepala').value,
             email: document.getElementById('ins-email').value,
             pengumuman: document.getElementById('ins-pengumuman').value,
-            lat: document.getElementById('ins-lat').value,
-            lng: document.getElementById('ins-lng').value,
+            lat: document.getElementById('ins-lat').value.replace(/,/g, '.'),
+            lng: document.getElementById('ins-lng').value.replace(/,/g, '.'),
             radius: document.getElementById('ins-radius').value
         };
         await saveData();
