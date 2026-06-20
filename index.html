@@ -200,7 +200,11 @@
         .badge.status { background: #DCFCE7; color: var(--success); }
         .badge.status.inactive { background: #F3F4F6; color: var(--text-muted); }
         .emp-actions { display: flex; gap: 8px; }
-        .icon-btn { width: 32px; height: 32px; border-radius: 8px; display: flex; align-items: center; justify-content: center; border: 1px solid var(--border); background: white; color: var(--text-muted); cursor: pointer; }
+        .icon-btn { width: 32px; height: 32px; border-radius: 8px; display: flex; align-items: center; justify-content: center; border: 1px solid var(--border); background: white; color: var(--text-muted); cursor: pointer; transition: 0.2s; }
+        .icon-btn:hover { background: var(--primary-light); color: var(--primary); border-color: var(--primary); }
+        .icon-btn.delete { color: var(--danger); }
+        .icon-btn.delete:hover { background: #FEF2F2; border-color: #FECACA; }
+
         .hol-item { display: flex; justify-content: space-between; align-items: center; padding: 12px; background: #FFF1F2; border-radius: 8px; border: 1px solid #FECACA; margin-bottom: 8px; }
         .hol-date { font-weight: 800; color: #B91C1C; }
         .hol-desc { font-size: 0.9rem; color: #7F1D1D; }
@@ -308,6 +312,10 @@
             .wilayah-grid { grid-template-columns: 1fr; }
             .rc-card { padding: 20px; }
             .dir-grid { grid-template-columns: repeat(2, 1fr); gap: 12px; }
+            
+            /* CSS Fix for Mobile Admin Employee List */
+            .emp-item { flex-direction: column; align-items: flex-start; gap: 12px; }
+            .emp-actions { width: 100%; justify-content: flex-end; padding-top: 8px; border-top: 1px dashed var(--border); }
         }
     </style>
 </head>
@@ -446,8 +454,7 @@
             <p style="font-size:0.85rem; color:var(--text-muted);">Pratinjau Depan & Belakang</p>
         </div>
 
-        <div id="idcard-preview" class="id-card-preview-container">
-            </div>
+        <div id="idcard-preview" class="id-card-preview-container"></div>
 
         <div style="margin-top:20px; display:flex; gap:10px;">
             <button class="btn btn-outline" style="flex:1" onclick="closeModal('idcard-modal')">Tutup</button>
@@ -461,13 +468,48 @@
         <h3 id="shift-modal-title" style="margin-bottom:4px;">Atur Jadwal Harian</h3>
         <p id="shift-modal-subtitle" style="color:var(--text-muted); font-size:0.85rem; margin-bottom:24px; font-weight:600;"></p>
         
-        <!-- Dropdown petugas akan digenerate otomatis lewat JS sesuai hari (Biasa/Weekend) -->
         <div id="daily-shift-container"></div>
 
         <div style="display:flex; gap:12px; margin-top: 10px;">
             <button class="btn btn-outline" style="flex:1" onclick="closeModal('shift-modal')">Batal</button>
             <button class="btn btn-primary" style="flex:1" onclick="saveDailySchedule()">Simpan Jadwal</button>
         </div>
+    </div>
+</div>
+
+<div id="select-emp-modal" class="modal-overlay">
+    <div class="modal-box" style="max-height: 85vh; display: flex; flex-direction: column;">
+        <h3 style="margin-bottom: 8px;">Pilih Nama Anda</h3>
+        <p style="color: var(--text-muted); font-size: 0.85rem; margin-bottom: 16px;">Anda menggunakan QR Umum. Silakan cari dan pilih nama Anda untuk absen.</p>
+        
+        <div class="search-box" style="margin-bottom: 16px; z-index: 10;">
+            <input type="text" id="search-emp-general" class="search-input" style="padding: 12px 16px 12px 40px; font-size:0.9rem;" placeholder="Ketik nama Anda..." onkeyup="filterGeneralEmp(this.value)">
+            <i class="fa-solid fa-magnifying-glass search-icon-marker" style="left:14px;"></i>
+        </div>
+        
+        <div id="general-emp-list" style="overflow-y: auto; flex: 1; display: flex; flex-direction: column; gap: 8px; margin-bottom:16px; min-height: 250px;">
+        </div>
+        
+        <button class="btn btn-outline" style="width: 100%;" onclick="cancelGeneralScan()">Batal</button>
+    </div>
+</div>
+
+<!-- MODAL PILIH TIPE ABSENSI (MASUK/PULANG) -->
+<div id="absen-type-modal" class="modal-overlay">
+    <div class="modal-box text-center" style="max-width: 360px;">
+        <h3 style="margin-bottom: 8px;">Konfirmasi Absensi</h3>
+        <p style="color: var(--text-muted); margin-bottom: 24px;">Silakan pilih jenis absensi untuk <br><strong id="absen-emp-name" style="color:var(--text-main); font-size:1.1rem;"></strong></p>
+        
+        <div style="display:flex; flex-direction:column; gap:12px; margin-bottom: 20px;">
+            <button id="btn-absen-masuk" class="btn btn-primary" style="padding:14px; font-size:1rem;" onclick="submitAbsen('Masuk')">
+                <i class="fa-solid fa-right-to-bracket"></i> Masuk
+            </button>
+            <button id="btn-absen-pulang" class="btn btn-danger" style="padding:14px; font-size:1rem;" onclick="submitAbsen('Pulang')">
+                <i class="fa-solid fa-right-from-bracket"></i> Pulang
+            </button>
+        </div>
+        
+        <button class="btn btn-outline" style="width: 100%; border:none;" onclick="cancelAbsenProcess()">Batal</button>
     </div>
 </div>
 
@@ -880,7 +922,7 @@
         const content = document.body.innerHTML;
         const win = window.open('', '_blank', 'height=700,width=900');
         if (!win) { alert("Pop-up diblokir! Mohon izinkan pop-up untuk situs ini agar bisa mencetak."); return; }
-        win.document.write(`<html><head><title>Cetak Dokumen</title>${googleFonts}${fontAwesome}<style>${styles} body { background: white; -webkit-print-color-adjust: exact; } #sidebar, #bottom-nav, .no-print, .btn, .dash-header button, .cal-sidebar, .agenda-header button, .scan-fab, .modal-overlay, .dir-header, .dir-search-box { display: none !important; } #main-content { padding: 0; margin: 0; max-width: 100%; overflow: visible; } .print-header { display: block !important; text-align: center; border-bottom: 3px double black; margin-bottom: 20px; padding-bottom: 10px; } .print-footer { display: flex !important; justify-content: space-between; margin-top: 50px; page-break-inside: avoid; } .print-grid { display: grid !important; grid-template-columns: repeat(7, 1fr); border: 1px solid black; width: 100%; } .print-cell { border: 1px solid black; min-height: 80px; padding: 5px; font-size: 10pt; } .cal-container { display: none; } </style></head><body>${content}<script>window.onload = function() { setTimeout(function() { window.print(); window.close(); }, 1000); };<\/script></body></html>`);
+        win.document.write(`<html><head><title>Cetak Dokumen</title>${googleFonts}${fontAwesome}<style>${styles} body { background: white; -webkit-print-color-adjust: exact; } #sidebar, #bottom-nav, .no-print, .btn, .dash-header button, .cal-sidebar, .agenda-header button, .scan-fab, .modal-overlay { display: none !important; } #main-content { padding: 0; margin: 0; max-width: 100%; overflow: visible; } .print-header { display: block !important; text-align: center; border-bottom: 3px double black; margin-bottom: 20px; padding-bottom: 10px; } .print-footer { display: flex !important; justify-content: space-between; margin-top: 50px; page-break-inside: avoid; } .print-grid { display: grid !important; grid-template-columns: repeat(7, 1fr); border: 1px solid black; width: 100%; } .print-cell { border: 1px solid black; min-height: 80px; padding: 5px; font-size: 10pt; } .cal-container { display: none; } </style></head><body>${content}<script>window.onload = function() { setTimeout(function() { window.print(); window.close(); }, 1000); };<\/script></body></html>`);
         win.document.close();
     }
 
@@ -1156,7 +1198,7 @@
 
     function processScanResult(id) {
         pendingAbsenId = id;
-        const emp = state.employees.find(e => e.id == id);
+        const emp = state.employees.find(e => String(e.id) === String(id));
         if(!emp) { 
             alert("Pegawai tidak ditemukan!"); 
             return navigateTo('scan'); 
@@ -1220,7 +1262,9 @@
             if(result.status === 'Sukses') {
                 document.getElementById('res-msg').innerText = `${result.nama} - ${statusType}`;
                 document.getElementById('result-modal').style.display = 'flex';
-                await loadData(); // Load the fresh data including the new scan to update 'recentScans'
+                // Paksa bersihkan cache dan load data baru
+                localStorage.removeItem('eJakaData'); 
+                await loadData(); 
             } else {
                 alert("Gagal: " + result.message);
                 navigateTo('scan');
@@ -1307,8 +1351,8 @@
                                 </div>
                                 <div class="emp-actions">
                                     <div class="icon-btn" onclick="showQR('${e.id}','${e.name}')" title="Lihat QR Individu"><i class="fa-solid fa-qrcode"></i></div>
-                                    <div class="icon-btn" onclick="openEmpModal(${e.id})" title="Edit"><i class="fa-solid fa-pen"></i></div>
-                                    <div class="icon-btn delete" onclick="delEmp(${e.id})" title="Hapus"><i class="fa-solid fa-trash"></i></div>
+                                    <div class="icon-btn" onclick="openEmpModal('${e.id}')" title="Edit"><i class="fa-solid fa-pen"></i></div>
+                                    <div class="icon-btn delete" onclick="delEmp('${e.id}')" title="Hapus"><i class="fa-solid fa-trash"></i></div>
                                 </div>
                             </div>
                         `).join('')}
@@ -1398,11 +1442,11 @@
         const container = document.getElementById('schedule-editor-list');
         const shifts = state.schedule[dateStr]?.shifts || [];
         if (shifts.length === 0) {
-            container.innerHTML = `<div style="text-align:center; padding:30px; border:1px dashed #cbd5e1; border-radius:12px; color:#64748b;"><i class="fa-solid fa-calendar-xmark" style="font-size:2rem; margin-bottom:10px;"></i><br>Belum ada jadwal pada tanggal ini.<br>Klik <b>+ Tambah Shift</b> untuk mengisi.</div>`;
+            container.innerHTML = `<div style="text-align:center; padding:30px; border:1px dashed #cbd5e1; border-radius:12px; color:#64748b;"><i class="fa-solid fa-calendar-xmark" style="font-size:2rem; margin-bottom:10px;"></i><br>Belum ada jadwal pada tanggal ini.<br>Klik <b>Atur Jadwal</b> untuk mengisi.</div>`;
             return;
         }
         container.innerHTML = shifts.map((s, idx) => {
-            const emp = state.employees.find(e => e.id == s.employeeId);
+            const emp = state.employees.find(e => String(e.id) === String(s.employeeId));
             const empName = emp ? emp.name : 'Unknown/Terhapus';
             const empRegion = emp ? emp.region : '-';
             
@@ -1450,7 +1494,7 @@
         }
         
         const existingShifts = state.schedule[dateStr]?.shifts || [];
-        let usedIndexes = []; // Menghindari nama yang sama muncul di 2 slot malam sekaligus
+        let usedIndexes = []; 
         
         function getExistingEmpFor(time) {
             for(let i = 0; i < existingShifts.length; i++) {
@@ -1497,17 +1541,17 @@
             const empId = select.value;
             const time = select.getAttribute('data-time');
             if (empId) {
-                newShifts.push({ time: time, employeeId: empId });
+                const emp = state.employees.find(e => String(e.id) === String(empId));
+                newShifts.push({ time: time, employeeId: empId, name: emp ? emp.name : '' });
             }
         });
         
-        // Urutkan jadwal sesuai waktu
         newShifts.sort((a, b) => a.time.localeCompare(b.time));
         
         if (newShifts.length > 0) {
             state.schedule[dateStr] = { shifts: newShifts };
         } else {
-            delete state.schedule[dateStr]; // Hapus jika di-kosongkan semua
+            delete state.schedule[dateStr]; 
         }
         
         await saveData();
@@ -1599,7 +1643,7 @@
     // === LOGIC ID CARD ===
     let currentCardId = null;
     function openIdCardModal(id) {
-        const e = state.employees.find(x => x.id == id);
+        const e = state.employees.find(x => String(x.id) === String(id));
         if (!e) return;
         currentCardId = id;
         const photo = e.photo || 'https://ouch-cdn2.icons8.com/f0WfCbd0_0Jt_aA2g0Vf8vXf6pQkY8zX5y.png'; 
@@ -1635,7 +1679,7 @@
 
     function printIdCardTwoSides() {
         if (!currentCardId) return;
-        const e = state.employees.find(x => x.id == currentCardId);
+        const e = state.employees.find(x => String(x.id) === String(currentCardId));
         const previewHtml = document.getElementById('idcard-preview').innerHTML;
         const styles = document.getElementsByTagName('style')[0].innerHTML;
         const win = window.open('', '_blank');
@@ -1676,7 +1720,7 @@
     function openEmpModal(id=null) {
         currentFileBase64 = null; document.getElementById('emp-file-upload').value = ""; document.getElementById('upload-status').innerText = "Akan dikompresi otomatis";
         if(id) { 
-            const e = state.employees.find(x => x.id == id); 
+            const e = state.employees.find(x => String(x.id) === String(id)); 
             document.getElementById('emp-id').value = e.id; document.getElementById('emp-name').value = e.name; document.getElementById('emp-phone').value = e.phone || ''; document.getElementById('emp-role').value = e.role || 'KORLAP'; document.getElementById('emp-region').value = e.region; document.getElementById('emp-status').value = e.status || 'Aktif'; document.getElementById('emp-photo-url').value = e.photo; document.getElementById('preview-photo').src = e.photo || `https://ui-avatars.com/api/?name=${e.name}`; document.getElementById('emp-modal-title').innerText = "Edit Pegawai"; 
         } else { 
             document.getElementById('emp-id').value = ''; document.getElementById('emp-name').value = ''; document.getElementById('emp-phone').value = ''; document.getElementById('emp-photo-url').value = ''; document.getElementById('preview-photo').src = "https://ui-avatars.com/api/?name=User"; document.getElementById('emp-status').value = 'Aktif'; document.getElementById('emp-modal-title').innerText = "Tambah Pegawai"; 
@@ -1689,7 +1733,7 @@
         if(!name) return alert("Isi Nama!"); showLoading(true);
         try {
             if (currentFileBase64) { const payload = { action: 'upload', data: { image: currentFileBase64, name: 'foto_' + Date.now() + '.jpg' } }; const res = await fetch(SCRIPT_URL, { method: 'POST', body: JSON.stringify(payload) }); const result = await res.json(); if(result.status === 'Sukses') photoUrl = result.url; }
-            if(id) { const idx = state.employees.findIndex(x => x.id == id); if(idx !== -1) state.employees[idx] = { ...state.employees[idx], name, phone, role, region, status, photo: photoUrl }; } 
+            if(id) { const idx = state.employees.findIndex(x => String(x.id) === String(id)); if(idx !== -1) state.employees[idx] = { ...state.employees[idx], name, phone, role, region, status, photo: photoUrl }; } 
             else { state.employees.push({ id: Date.now(), name, phone, role, region, status, photo: photoUrl, lastDuty:'' }); }
             await saveData(); closeModal('emp-modal'); renderAdmin(document.getElementById('main-content'));
         } catch(e) { alert("Gagal"); } finally { showLoading(false); }
@@ -1706,6 +1750,21 @@
     async function generateScheduleLogic() {
         const date = document.getElementById('genDate').value; 
         const days = parseInt(document.getElementById('genDays').value); 
+        if(!date) return alert("Pilih Tanggal!");
+        
+        let pool = [...state.employees].filter(e => e.status !== 'Non-Aktif').sort((a,b)=>(a.lastDuty||'').localeCompare(b.lastDuty||''));
+        let curr = new Date(date); let idx = 0;
+        
+        if(pool.length === 0) return alert("Tidak ada pegawai aktif untuk dijadwalkan!");
+        
+        for(let i=0; i<days; i++) {
+            const dStr = curr.toISOString().split('T')[0]; 
+            const day = curr.getDay(); 
+            state.schedule[dStr] = { shifts: [] };
+            
+            // Perbaikan untuk Sabtu & Minggu sesuai request sebelumnya
+            const slots = (day===0||day===6) ? ['06:00-12:00','12:00-16:00','16:00-07:00','16:00-07:00'] : ['16:00-07:00','16:00-07:00'];
+            
             slots.forEach(time => { 
                 if(idx >= pool.length) idx=0; 
                 const emp = pool[idx]; 
