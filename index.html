@@ -211,6 +211,7 @@
         #reader button:hover { background-color: var(--primary-dark) !important; }
         #reader select { padding: 10px !important; border-radius: 10px !important; border: 1px solid var(--border) !important; font-family: inherit !important; outline: none !important; margin: 5px !important; max-width: 90%; }
         #reader__dashboard_section_csr span { color: var(--danger) !important; }
+        
         .recent-scan-list { margin-top: 20px; }
         .scan-item { display: flex; align-items: center; justify-content: space-between; padding: 12px; background: white; border-radius: 12px; margin-bottom: 8px; border: 1px solid var(--border); }
         .scan-time { font-weight: 700; color: var(--primary); font-size: 0.9rem; }
@@ -493,6 +494,25 @@
         </div>
         
         <button class="btn btn-outline" style="width: 100%;" onclick="cancelGeneralScan()">Batal</button>
+    </div>
+</div>
+
+<!-- MODAL PILIH MASUK/PULANG (VALIDASI GANDA) -->
+<div id="absen-type-modal" class="modal-overlay">
+    <div class="modal-box text-center" style="max-width: 360px;">
+        <h3 style="margin-bottom: 8px;">Pilih Jenis Absen</h3>
+        <p id="absen-emp-name" style="font-weight:bold; color:var(--primary); margin-bottom: 24px; font-size:1.1rem;"></p>
+        
+        <div style="display:flex; gap:12px;">
+            <button id="btn-absen-masuk" class="btn btn-primary" style="flex:1; padding: 16px 0; font-size: 1.1rem;" onclick="submitAbsen('Masuk')">
+                <i class="fa-solid fa-right-to-bracket"></i> Masuk
+            </button>
+            <button id="btn-absen-pulang" class="btn btn-danger" style="flex:1; padding: 16px 0; font-size: 1.1rem;" onclick="submitAbsen('Pulang')">
+                <i class="fa-solid fa-right-from-bracket"></i> Pulang
+            </button>
+        </div>
+        
+        <button class="btn btn-outline" style="width:100%; margin-top:16px;" onclick="cancelAbsenProcess()">Batal</button>
     </div>
 </div>
 
@@ -901,7 +921,7 @@
         const content = document.body.innerHTML;
         const win = window.open('', '_blank', 'height=700,width=900');
         if (!win) { alert("Pop-up diblokir! Mohon izinkan pop-up untuk situs ini agar bisa mencetak."); return; }
-        win.document.write(`<html><head><title>Cetak Dokumen</title>${googleFonts}${fontAwesome}<style>${styles} body { background: white; -webkit-print-color-adjust: exact; } #sidebar, #bottom-nav, .no-print, .btn, .dash-header button, .cal-sidebar, .agenda-header button, .scan-fab, .modal-overlay { display: none !important; } #main-content { padding: 0; margin: 0; max-width: 100%; overflow: visible; } .print-header { display: block !important; text-align: center; border-bottom: 3px double black; margin-bottom: 20px; padding-bottom: 10px; } .print-footer { display: flex !important; justify-content: space-between; margin-top: 50px; page-break-inside: avoid; } .print-grid { display: grid !important; grid-template-columns: repeat(7, 1fr); border: 1px solid black; width: 100%; } .print-cell { border: 1px solid black; min-height: 80px; padding: 5px; font-size: 10pt; } .cal-container { display: none; } </style></head><body>${content}<script>window.onload = function() { setTimeout(function() { window.print(); window.close(); }, 1000); };<\/script></body></html>`);
+        win.document.write(`<html><head><title>Cetak Dokumen</title>${googleFonts}${fontAwesome}<style>${styles} body { background: white; -webkit-print-color-adjust: exact; } #sidebar, #bottom-nav, .no-print, .btn, .dash-header button, .cal-sidebar, .agenda-header button, .scan-fab, .modal-overlay, .dir-header, .dir-search-box { display: none !important; } #main-content { padding: 0; margin: 0; max-width: 100%; overflow: visible; } .print-header { display: block !important; text-align: center; border-bottom: 3px double black; margin-bottom: 20px; padding-bottom: 10px; } .print-footer { display: flex !important; justify-content: space-between; margin-top: 50px; page-break-inside: avoid; } .print-grid { display: grid !important; grid-template-columns: repeat(7, 1fr); border: 1px solid black; width: 100%; } .print-cell { border: 1px solid black; min-height: 80px; padding: 5px; font-size: 10pt; } .cal-container { display: none; } </style></head><body>${content}<script>window.onload = function() { setTimeout(function() { window.print(); window.close(); }, 1000); };<\/script></body></html>`);
         win.document.close();
     }
 
@@ -1063,12 +1083,16 @@
             <div class="card">
                 <h3>Riwayat Hari Ini</h3>
                 <div class="recent-scan-list">
-                    ${state.recentScans.length > 0 ? state.recentScans.map(s => `
+                    ${state.recentScans.slice(0, 15).map(s => `
                         <div class="scan-item">
                             <div><strong>${s.nama}</strong><br><small>${s.wilayah}</small></div>
-                            <div class="scan-time">${s.waktu}</div>
+                            <div style="text-align:right;">
+                                <div class="scan-time" style="margin-bottom:4px;">${s.waktu}</div>
+                                <span style="font-size:0.65rem; font-weight:800; text-transform:uppercase; letter-spacing:0.5px; padding:3px 8px; border-radius:8px; color:white; background:${s.status === 'Pulang' ? 'var(--danger)' : 'var(--success)'};">${s.status}</span>
+                            </div>
                         </div>
-                    `).join('') : '<p style="color:#999; text-align:center;">Belum ada data scan.</p>'}
+                    `).join('')}
+                    ${state.recentScans.length === 0 ? '<p style="color:#999; text-align:center;">Belum ada data scan hari ini.</p>' : ''}
                 </div>
             </div>
         `;
@@ -1159,35 +1183,95 @@
     function onScanSuccess(decodedText, decodedResult) {
         const audio = document.getElementById('scan-sound');
         if(audio) audio.play();
-        html5QrcodeScanner.clear();
+        if(html5QrcodeScanner) html5QrcodeScanner.clear(); // Matikan kamera sementara
         
-        // Logika Pembeda QR Personal vs QR Umum
         if (decodedText === GENERAL_QR_CODE) {
             openSelectEmpModal();
         } else {
-            sendScanData(decodedText);
+            processScanResult(decodedText);
         }
     }
 
-    async function sendScanData(id) {
+    // --- ALUR PROSES MEMILIH MASUK ATAU PULANG ---
+    let pendingAbsenId = null;
+
+    function processScanResult(id) {
+        pendingAbsenId = id;
+        const emp = state.employees.find(e => e.id == id);
+        if(!emp) { 
+            alert("Pegawai tidak ditemukan!"); 
+            return navigateTo('scan'); 
+        }
+        
+        document.getElementById('absen-emp-name').innerText = emp.name;
+        
+        // --- VALIDASI GANDA: Cek riwayat absen HARI INI berdasarkan ID ---
+        const scansToday = state.recentScans.filter(s => String(s.id) === String(id));
+        const hasMasuk = scansToday.some(s => s.status === 'Masuk');
+        const hasPulang = scansToday.some(s => s.status === 'Pulang');
+        
+        const btnMasuk = document.getElementById('btn-absen-masuk');
+        const btnPulang = document.getElementById('btn-absen-pulang');
+        
+        // Kunci tombol masuk jika sudah masuk
+        if (hasMasuk) {
+            btnMasuk.disabled = true;
+            btnMasuk.style.opacity = '0.4';
+            btnMasuk.innerHTML = `<i class="fa-solid fa-check"></i> Sudah Masuk`;
+        } else {
+            btnMasuk.disabled = false;
+            btnMasuk.style.opacity = '1';
+            btnMasuk.innerHTML = `<i class="fa-solid fa-right-to-bracket"></i> Masuk`;
+        }
+        
+        // Kunci tombol pulang jika sudah pulang
+        if (hasPulang) {
+            btnPulang.disabled = true;
+            btnPulang.style.opacity = '0.4';
+            btnPulang.innerHTML = `<i class="fa-solid fa-check"></i> Sudah Pulang`;
+        } else {
+            btnPulang.disabled = false;
+            btnPulang.style.opacity = '1';
+            btnPulang.innerHTML = `<i class="fa-solid fa-right-from-bracket"></i> Pulang`;
+        }
+
+        document.getElementById('absen-type-modal').style.display = 'flex';
+    }
+
+    function cancelAbsenProcess() {
+        closeModal('absen-type-modal');
+        navigateTo('scan'); // Refresh scanner map & camera
+    }
+
+    function submitAbsen(type) {
+        sendScanData(pendingAbsenId, type);
+    }
+
+    async function sendScanData(id, statusType) {
+        closeModal('absen-type-modal');
         showLoading(true);
         try {
             let locString = 'Tanpa GPS';
             if (userLocation) { locString = `Lat: ${userLocation.lat.toFixed(5)}, Lng: ${userLocation.lng.toFixed(5)}`; }
-            const payload = { action: 'scan', data: { id: id, lokasi: locString } };
+            
+            const payload = { action: 'scan', data: { id: id, lokasi: locString, status: statusType } };
             const res = await fetch(SCRIPT_URL, { method: 'POST', body: JSON.stringify(payload) });
             const result = await res.json();
             
             if(result.status === 'Sukses') {
-                document.getElementById('res-msg').innerText = `${result.nama} - ${result.waktu}`;
+                document.getElementById('res-msg').innerText = `${result.nama} - ${statusType}`;
                 document.getElementById('result-modal').style.display = 'flex';
-                await loadData(); 
+                await loadData(); // Load the fresh data including the new scan to update 'recentScans'
             } else {
                 alert("Gagal: " + result.message);
                 navigateTo('scan');
             }
-        } catch(e) { alert("Error Koneksi"); navigateTo('scan'); } 
-        finally { showLoading(false); }
+        } catch(e) { 
+            alert("Error Koneksi"); 
+            navigateTo('scan'); 
+        } finally { 
+            showLoading(false); 
+        }
     }
 
     // FUNGSI LOGIKA MEMILIH NAMA (QR UMUM)
@@ -1218,7 +1302,7 @@
     }
 
     function filterGeneralEmp(kw) { renderGeneralEmpList(kw); }
-    function selectEmpForGeneral(id) { closeModal('select-emp-modal'); sendScanData(id); }
+    function selectEmpForGeneral(id) { closeModal('select-emp-modal'); processScanResult(id); }
     function cancelGeneralScan() { closeModal('select-emp-modal'); navigateTo('scan'); }
 
     // === PAGE: ADMIN ===
