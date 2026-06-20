@@ -850,6 +850,7 @@
     let heroInterval;
     let html5QrcodeScanner; 
     let searchTimeout;
+    let userLocation = null; // Tambahan untuk menyimpan koordinat GPS user
 
     // === INIT & FAST CACHING ===
     async function init() {
@@ -1441,9 +1442,15 @@
     function renderScan(container) {
         container.innerHTML = `
             <div class="dash-header"><h2>Scan QR Code</h2><p style="color:var(--text-muted)">Absensi Kehadiran</p></div>
-            <div class="card" style="padding:0; overflow:hidden; border:none;">
+            
+            <div id="gps-status" style="padding:16px; text-align:center; background:#FFFBEB; color:#B45309; border-radius:16px; margin-bottom:20px; font-weight:700; display:flex; align-items:center; justify-content:center; gap:10px; border:1px solid #FCD34D;">
+                <i class="fa-solid fa-location-dot fa-fade" style="font-size:1.2rem;"></i> Menganalisa titik koordinat (GPS)...
+            </div>
+
+            <div class="card" id="reader-container" style="padding:0; overflow:hidden; border:none; display:none; border-radius:20px; box-shadow:0 10px 30px rgba(0,0,0,0.15);">
                 <div id="reader"></div>
             </div>
+            
             <div class="card">
                 <h3>Riwayat Hari Ini</h3>
                 <div class="recent-scan-list">
@@ -1459,7 +1466,74 @@
         startScanner();
     }
 
+    // --- Rumus Haversine untuk menghitung jarak (meter) ---
+    function getDistanceFromLatLonInKm(lat1, lon1, lat2, lon2) {
+        const R = 6371; // Radius bumi dalam KM
+        const dLat = (lat2-lat1) * (Math.PI/180);
+        const dLon = (lon2-lon1) * (Math.PI/180); 
+        const a = Math.sin(dLat/2) * Math.sin(dLat/2) +
+                  Math.cos(lat1 * (Math.PI/180)) * Math.cos(lat2 * (Math.PI/180)) * 
+                  Math.sin(dLon/2) * Math.sin(dLon/2); 
+        const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a)); 
+        return R * c * 1000; // Konversi ke Meter
+    }
+
     function startScanner() {
+        const gpsStatus = document.getElementById('gps-status');
+        const readerContainer = document.getElementById('reader-container');
+        
+        // 1. Cek apakah Admin sudah mengatur koordinat Geofencing
+        if (!state.instansi.lat || !state.instansi.lng || !state.instansi.radius) {
+            gpsStatus.style.display = 'none'; // Sembunyikan notif GPS karena tidak diwajibkan
+            readerContainer.style.display = 'block';
+            initHtml5Qrcode();
+            return;
+        }
+
+        // 2. Jika Geofencing aktif, minta izin GPS
+        if (navigator.geolocation) {
+            navigator.geolocation.getCurrentPosition(
+                (position) => {
+                    userLocation = { lat: position.coords.latitude, lng: position.coords.longitude };
+                    
+                    const targetLat = parseFloat(state.instansi.lat);
+                    const targetLng = parseFloat(state.instansi.lng);
+                    const radiusMaksimal = parseFloat(state.instansi.radius);
+
+                    // Hitung Jarak
+                    const distance = getDistanceFromLatLonInKm(userLocation.lat, userLocation.lng, targetLat, targetLng);
+
+                    if (distance <= radiusMaksimal) {
+                        // SUKSES: Di dalam area
+                        gpsStatus.innerHTML = `<i class="fa-solid fa-circle-check"></i> Sinyal GPS Kuat. Anda berada di area kantor (${Math.round(distance)} meter).`;
+                        gpsStatus.style.background = '#DCFCE7';
+                        gpsStatus.style.color = '#166534';
+                        gpsStatus.style.borderColor = '#86EFAC';
+                        
+                        readerContainer.style.display = 'block'; // Buka kunci kamera
+                        initHtml5Qrcode();
+                    } else {
+                        // GAGAL: Di luar area
+                        gpsStatus.innerHTML = `<i class="fa-solid fa-triangle-exclamation"></i> GAGAL! Anda berada di luar radius absen.<br><span style="font-weight:400; font-size:0.85rem;">Jarak Anda: ${Math.round(distance)}m | Batas: ${radiusMaksimal}m</span>`;
+                        gpsStatus.style.background = '#FEF2F2';
+                        gpsStatus.style.color = '#B91C1C';
+                        gpsStatus.style.borderColor = '#FECACA';
+                    }
+                },
+                (error) => {
+                    gpsStatus.innerHTML = `<i class="fa-solid fa-location-crosshairs"></i> Gagal melacak. Pastikan fitur LOKASI (GPS) di HP Anda menyala dan izinkan browser mengaksesnya.`;
+                    gpsStatus.style.background = '#FEF2F2';
+                    gpsStatus.style.color = '#B91C1C';
+                    gpsStatus.style.borderColor = '#FECACA';
+                },
+                { enableHighAccuracy: true, timeout: 15000, maximumAge: 0 }
+            );
+        } else {
+            gpsStatus.innerHTML = "Browser Anda tidak mendukung fitur lokasi (GPS).";
+        }
+    }
+
+    function initHtml5Qrcode() {
         if(typeof Html5QrcodeScanner !== 'undefined') {
             html5QrcodeScanner = new Html5QrcodeScanner("reader", { fps: 10, qrbox: 250 });
             html5QrcodeScanner.render(onScanSuccess);
@@ -1478,7 +1552,13 @@
     async function sendScanData(id) {
         showLoading(true);
         try {
-            const payload = { action: 'scan', data: { id: id, lokasi: 'Kantor UPT' } };
+            // Sisipkan data koordinat aktual saat pegawai memindai
+            let locString = 'Tanpa GPS';
+            if (userLocation) {
+                locString = `Lat: ${userLocation.lat.toFixed(5)}, Lng: ${userLocation.lng.toFixed(5)}`;
+            }
+
+            const payload = { action: 'scan', data: { id: id, lokasi: locString } };
             const res = await fetch(SCRIPT_URL, { method: 'POST', body: JSON.stringify(payload) });
             const result = await res.json();
             
@@ -1588,7 +1668,7 @@
 
             <div id="tab-instansi" style="display:none;">
                 <div class="card">
-                    <h3 style="margin-bottom:16px;">Pengaturan Instansi</h3>
+                    <h3 style="margin-bottom:16px;">Pengaturan Instansi & Keamanan</h3>
                     
                     <div class="form-group" style="margin-bottom:24px; padding:16px; background:#FEF2F2; border:1px dashed #F87171; border-radius:12px;">
                         <label class="form-label" style="color:var(--danger); font-weight:800;"><i class="fa-solid fa-bullhorn"></i> Pengumuman Berjalan (Dashboard)</label>
@@ -1596,11 +1676,31 @@
                         <p style="font-size:0.7rem; color:var(--danger); margin-top:6px; margin-bottom:0;">Kosongkan kolom ini jika tidak ada pengumuman darurat.</p>
                     </div>
 
+                    <div class="form-group" style="margin-bottom:24px; padding:16px; background:#F0FDF4; border:1px dashed #4ADE80; border-radius:12px;">
+                        <label class="form-label" style="color:#166534; font-weight:800;"><i class="fa-solid fa-location-crosshairs"></i> Geofencing GPS (Area Wajib Absen)</label>
+                        <div style="display:grid; grid-template-columns: 1fr 1fr; gap:12px; margin-bottom:12px;">
+                            <div>
+                                <label class="form-label" style="font-size:0.75rem;">Latitude (Lintang)</label>
+                                <input type="text" id="ins-lat" class="form-input" placeholder="-8.123456" value="${state.instansi.lat || ''}">
+                            </div>
+                            <div>
+                                <label class="form-label" style="font-size:0.75rem;">Longitude (Bujur)</label>
+                                <input type="text" id="ins-lng" class="form-input" placeholder="114.123456" value="${state.instansi.lng || ''}">
+                            </div>
+                        </div>
+                        <div style="margin-bottom:16px;">
+                            <label class="form-label" style="font-size:0.75rem;">Radius Toleransi (Meter)</label>
+                            <input type="number" id="ins-radius" class="form-input" placeholder="Misal: 50" value="${state.instansi.radius || '50'}">
+                        </div>
+                        <button class="btn btn-outline btn-sm" onclick="getLocationForAdmin()" style="width:100%; border-color:#4ADE80; color:#166534;"><i class="fa-solid fa-map-pin"></i> Setel ke Lokasi Saya Saat Ini</button>
+                        <p style="font-size:0.7rem; color:#166534; margin-top:10px; margin-bottom:0;">Biarkan kosong jika pegawai diizinkan memindai QR Code dari mana saja (GPS dimatikan).</p>
+                    </div>
+
                     <div class="form-group" style="margin-bottom:16px;"><label class="form-label">Nama Instansi</label><input type="text" id="ins-nama" class="form-input" value="${state.instansi.nama}"></div>
                     <div class="form-group" style="margin-bottom:16px;"><label class="form-label">Alamat</label><input type="text" id="ins-alamat" class="form-input" value="${state.instansi.alamat}"></div>
                     <div class="form-group" style="margin-bottom:16px;"><label class="form-label">Nama Kepala Dinas</label><input type="text" id="ins-kepala" class="form-input" value="${state.instansi.kepala}"></div>
                     <div class="form-group" style="margin-bottom:16px;"><label class="form-label">Email Resmi</label><input type="text" id="ins-email" class="form-input" value="${state.instansi.email}"></div>
-                    <button class="btn btn-primary" style="width:100%;" onclick="saveInstansi()">Simpan Perubahan</button>
+                    <button class="btn btn-primary" style="width:100%;" onclick="saveInstansi()"><i class="fa-solid fa-save"></i> Simpan Perubahan</button>
                 </div>
             </div>
         `;
@@ -1754,16 +1854,37 @@
         if(confirm("Hapus?")) { delete state.holidays[d]; await saveData(); renderAdmin(document.getElementById('main-content')); switchTab('libur'); }
     }
 
+    window.getLocationForAdmin = function() {
+        if (navigator.geolocation) {
+            document.getElementById('ins-lat').value = "Mencari...";
+            document.getElementById('ins-lng').value = "Mencari...";
+            navigator.geolocation.getCurrentPosition((pos) => {
+                document.getElementById('ins-lat').value = pos.coords.latitude.toFixed(6);
+                document.getElementById('ins-lng').value = pos.coords.longitude.toFixed(6);
+                alert("Berhasil! Koordinat disetel ke lokasi Anda saat ini.");
+            }, (err) => {
+                alert("Gagal mengambil lokasi! Pastikan izin GPS aktif di HP/Laptop Anda.");
+                document.getElementById('ins-lat').value = "";
+                document.getElementById('ins-lng').value = "";
+            }, { enableHighAccuracy: true });
+        } else {
+            alert("Browser Anda tidak mendukung GPS.");
+        }
+    }
+
     async function saveInstansi() {
         state.instansi = {
             nama: document.getElementById('ins-nama').value,
             alamat: document.getElementById('ins-alamat').value,
             kepala: document.getElementById('ins-kepala').value,
             email: document.getElementById('ins-email').value,
-            pengumuman: document.getElementById('ins-pengumuman').value
+            pengumuman: document.getElementById('ins-pengumuman').value,
+            lat: document.getElementById('ins-lat').value,
+            lng: document.getElementById('ins-lng').value,
+            radius: document.getElementById('ins-radius').value
         };
         await saveData();
-        alert("Pengaturan Instansi & Pengumuman Disimpan!");
+        alert("Pengaturan Instansi & Keamanan Disimpan!");
         renderAdmin(document.getElementById('main-content')); // Render ulang panel admin
     }
 
