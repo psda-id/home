@@ -419,7 +419,7 @@
         .dir-role { font-size: 0.7rem; color: var(--text-muted); font-weight: 700; background: #F1F5F9; padding: 4px 10px; border-radius: 8px; z-index: 1; position: relative; letter-spacing: 0.5px; }
         .dir-region { font-size: 0.65rem; color: var(--primary); font-weight: 700; margin-top: 8px; text-transform: uppercase; z-index: 1; position: relative; }
 
-        /* --- STYLE ID CARD PORTRAIT (REFERENSI SUROTO) --- */
+        /* --- STYLE ID CARD PORTRAIT --- */
         .idc-portrait-wrapper {
             display: flex; gap: 20px; justify-content: center; flex-wrap: wrap;
             background: #e2e8f0; padding: 20px; border-radius: 12px;
@@ -664,7 +664,7 @@
             <div>
                 <label for="emp-file-upload" class="btn btn-outline btn-sm" style="cursor:pointer;">📷 Ganti Foto</label>
                 <input type="file" id="emp-file-upload" style="display:none;" accept="image/*" onchange="previewImage(this)">
-                <p id="upload-status" style="font-size:0.75rem; color:var(--text-muted); margin-top:6px;">Maksimal 2MB (Akan dikompresi otomatis)</p>
+                <p id="upload-status" style="font-size:0.75rem; color:var(--text-muted); margin-top:6px;">Akan dikompresi otomatis</p>
             </div>
         </div>
 
@@ -859,7 +859,7 @@
             const parsed = JSON.parse(cachedData);
             state = { ...state, ...parsed };
             
-            // Render UI langsung!
+            // Render UI langsung dari memori lokal (Ngebut!)
             const currentBtn = document.querySelector('.nav-btn.active') || document.querySelector('.menu-link.active');
             if(currentBtn) {
                if(currentBtn.innerText.toLowerCase().includes('jadwal')) currentTab = 'calendar';
@@ -885,7 +885,7 @@
             if(data.instansi) state.instansi = data.instansi;
             if(data.recentScans) state.recentScans = data.recentScans;
 
-            // 3. Simpan data terbaru ke memory HP
+            // 3. Simpan data terbaru ke memory HP untuk sesi berikutnya
             localStorage.setItem('eJakaData', JSON.stringify({
                 employees: state.employees,
                 schedule: state.schedule,
@@ -894,7 +894,7 @@
                 recentScans: state.recentScans
             }));
 
-            // Re-render data dengan senyap (background update)
+            // Re-render data secara diam-diam
             navigateTo(currentTab);
 
         } catch(e) { console.error("Sinkronisasi gagal", e); }
@@ -915,7 +915,7 @@
             };
             await fetch(SCRIPT_URL, { method: 'POST', body: JSON.stringify(payload) });
             
-            // Perbarui cache lokal agar tetap sinkron
+            // Perbarui cache lokal agar sinkron dengan server
             localStorage.setItem('eJakaData', JSON.stringify({
                 employees: state.employees,
                 schedule: state.schedule,
@@ -1068,7 +1068,7 @@
             
             <div style="margin-top:24px;">
                 <div class="search-box">
-                    <input type="text" class="search-input" placeholder="Cari menu... (Cth: PPA, Smopi, Korlap)" onkeyup="handleMenuSearch(this)">
+                    <input type="text" class="search-input" placeholder="Cari menu... (Cth: PPA, Smopi, Korlap)" onkeyup="handleMenuSearchDebounce(this)">
                     <i class="fa-solid fa-magnifying-glass search-icon-marker"></i>
                 </div>
                 
@@ -1136,11 +1136,11 @@
         grid.innerHTML = html;
     }
 
-    function handleMenuSearch(input) {
+    function handleMenuSearchDebounce(input) {
         clearTimeout(searchTimeout);
         searchTimeout = setTimeout(() => {
             renderQuickMenu(input.value);
-        }, 300);
+        }, 300); // Penundaan agar performa tidak ngelag
     }
 
     function startHeroSlider() {
@@ -1269,7 +1269,7 @@
                 <div class="cal-sidebar">
                     <div class="cal-search-wrapper">
                         <i class="fa-solid fa-magnifying-glass cal-search-icon"></i>
-                        <input type="text" class="cal-search-input" placeholder="Cari nama pegawai di jadwal..." onkeyup="searchScheduleName(this)">
+                        <input type="text" class="cal-search-input" placeholder="Cari nama pegawai di jadwal..." onkeyup="searchScheduleNameDebounce(this)">
                     </div>
 
                     <div class="cal-header">
@@ -1396,7 +1396,7 @@
         }
     }
 
-    function searchScheduleName(input) {
+    function searchScheduleNameDebounce(input) {
         clearTimeout(searchTimeout);
         searchTimeout = setTimeout(() => {
             const keyword = input.value.toLowerCase();
@@ -1951,7 +1951,7 @@
                 const img = new Image();
                 img.onload = function() {
                     const canvas = document.createElement('canvas');
-                    // Tentukan batas maksimal lebar dan tinggi foto (Cukup untuk ID Card)
+                    // Tentukan batas maksimal resolusi
                     const MAX_WIDTH = 400;
                     const MAX_HEIGHT = 600;
                     let width = img.width;
@@ -1967,7 +1967,7 @@
                     const ctx = canvas.getContext('2d');
                     ctx.drawImage(img, 0, 0, width, height);
                     
-                    // Kompres ke JPEG dengan kualitas 70% (Jauh lebih kecil ukurannya)
+                    // Kompres ke JPEG dengan kualitas 70% 
                     const compressedBase64 = canvas.toDataURL('image/jpeg', 0.7); 
                     
                     document.getElementById('preview-photo').src = compressedBase64; 
@@ -1982,7 +1982,7 @@
     }
     
     function openEmpModal(id=null) {
-        currentFileBase64 = null; document.getElementById('emp-file-upload').value = ""; document.getElementById('upload-status').innerText = "Maksimal 2MB (Akan dikompresi otomatis)";
+        currentFileBase64 = null; document.getElementById('emp-file-upload').value = ""; document.getElementById('upload-status').innerText = "Akan dikompresi otomatis";
         if(id) { 
             const e = state.employees.find(x => x.id == id); 
             document.getElementById('emp-id').value = e.id; 
@@ -2090,10 +2090,10 @@
                 closeModal('login-modal');
                 navigateTo('admin');
             } else {
-                alert(result.message); // Pesan "PIN salah" dari server
+                alert(result.message); // Tampilkan pesan "PIN salah!" dari server
             }
         } catch(e) {
-            alert("Gagal terhubung ke server.");
+            alert("Gagal terhubung ke server. Periksa koneksi atau URL Apps Script.");
         } finally {
             showLoading(false);
         }
@@ -2103,6 +2103,7 @@
     function updateToggleUI() { const circle = document.getElementById('toggle-circle'); if(state.isAdmin) { circle.style.left = '22px'; circle.style.background = '#4ADE80'; } else { circle.style.left = '2px'; circle.style.background = 'white'; } }
     function showLoading(show) { document.getElementById('loading-modal').style.display = show ? 'flex' : 'none'; }
     function closeModal(id) { document.getElementById(id).style.display = 'none'; if(id==='result-modal') navigateTo('scan'); }
+    
     window.addEventListener('DOMContentLoaded', init);
 </script>
 </body>
