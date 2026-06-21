@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>E-JaKa - E-Presensi Jaga Kantor</title>
     
-    <!-- PWA META TAGS -->
+    <!-- PWA META TAGS (Untuk Install ke Layar HP) -->
     <meta name="theme-color" content="#2563EB">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
@@ -279,7 +279,7 @@
         .dir-role { font-size: 0.7rem; color: var(--text-muted); font-weight: 700; background: #F1F5F9; padding: 4px 10px; border-radius: 8px; z-index: 1; position: relative; letter-spacing: 0.5px; }
         .dir-region { font-size: 0.65rem; color: var(--primary); font-weight: 700; margin-top: 8px; text-transform: uppercase; z-index: 1; position: relative; }
 
-        /* --- STYLE ID CARD PORTRAIT --- */
+        /* --- STYLE ID CARD PORTRAIT (DISEMPURNAKAN UNTUK DESKTOP & MOBILE) --- */
         .id-card-preview-container { display: flex; justify-content: center; width: 100%; }
         .idc-portrait-wrapper { display: flex; flex-direction: row; gap: 24px; justify-content: center; background: transparent; padding: 10px; }
         .idc-p-card { width: 320px; height: 520px; background: #FFFFFF; border-radius: 15px; position: relative; overflow: hidden; box-shadow: 0 15px 35px rgba(0,0,0,0.15); font-family: 'Plus Jakarta Sans', sans-serif; flex-shrink: 0; }
@@ -551,19 +551,7 @@
     </div>
 </div>
 
-<div id="select-emp-modal" class="modal-overlay">
-    <div class="modal-box" style="max-height: 85vh; display: flex; flex-direction: column;">
-        <h3 style="margin-bottom: 8px;">Pilih Nama Anda</h3>
-        <p style="color: var(--text-muted); font-size: 0.85rem; margin-bottom: 16px;">Anda menggunakan QR Umum. Silakan cari dan pilih nama Anda untuk absen.</p>
-        <div class="search-box" style="margin-bottom: 16px; z-index: 10;">
-            <input type="text" id="search-emp-general" class="search-input" style="padding: 12px 16px 12px 40px; font-size:0.9rem;" placeholder="Ketik nama Anda..." onkeyup="filterGeneralEmp(this.value)">
-            <i class="fa-solid fa-magnifying-glass search-icon-marker" style="left:14px;"></i>
-        </div>
-        <div id="general-emp-list" style="overflow-y: auto; flex: 1; display: flex; flex-direction: column; gap: 8px; margin-bottom:16px; min-height: 250px;"></div>
-        <button class="btn btn-outline" style="width: 100%;" onclick="cancelGeneralScan()">Batal</button>
-    </div>
-</div>
-
+<!-- MODAL PILIH TIPE ABSENSI (MASUK/PULANG) -->
 <div id="absen-type-modal" class="modal-overlay">
     <div class="modal-box text-center" style="max-width: 360px;">
         <h3 style="margin-bottom: 8px;">Konfirmasi Absensi</h3>
@@ -577,6 +565,32 @@
             </button>
         </div>
         <button class="btn btn-outline" style="width: 100%; border:none;" onclick="cancelAbsenProcess()">Batal</button>
+    </div>
+</div>
+
+<div id="select-emp-modal" class="modal-overlay">
+    <div class="modal-box" style="max-height: 85vh; display: flex; flex-direction: column;">
+        <h3 style="margin-bottom: 8px;">Pilih Nama Anda</h3>
+        <p style="color: var(--text-muted); font-size: 0.85rem; margin-bottom: 16px;">Wajah berhasil dipindai. Silakan cari dan pilih nama Anda untuk absen.</p>
+        <div class="search-box" style="margin-bottom: 16px; z-index: 10;">
+            <input type="text" id="search-emp-general" class="search-input" style="padding: 12px 16px 12px 40px; font-size:0.9rem;" placeholder="Ketik nama Anda..." onkeyup="filterGeneralEmp(this.value)">
+            <i class="fa-solid fa-magnifying-glass search-icon-marker" style="left:14px;"></i>
+        </div>
+        <div id="general-emp-list" style="overflow-y: auto; flex: 1; display: flex; flex-direction: column; gap: 8px; margin-bottom:16px; min-height: 250px;"></div>
+        
+        <div style="display:flex; flex-direction:column; gap:10px; margin-top:10px;">
+            <div style="text-align:center; font-size:0.8rem; color:var(--text-muted); margin-bottom: 4px;">Atau</div>
+            <button class="btn btn-primary" style="width: 100%; background:#1E293B;" onclick="openStandaloneQRScanner()"><i class="fa-solid fa-qrcode"></i> Scan QR ID Card</button>
+            <button class="btn btn-outline" style="width: 100%;" onclick="cancelGeneralScan()">Batal Absen</button>
+        </div>
+    </div>
+</div>
+
+<div id="standalone-qr-modal" class="modal-overlay">
+    <div class="modal-box text-center">
+        <h3 style="margin-bottom: 16px;">Scan QR Kartu Anda</h3>
+        <div id="standalone-reader" style="width:100%; border-radius:16px; overflow:hidden; border:none; margin-bottom:16px; background:#F8FAFC; box-shadow: inset 0 0 0 1px var(--border);"></div>
+        <button class="btn btn-outline" style="width: 100%;" onclick="cancelStandaloneQR()">Kembali Pilih Nama</button>
     </div>
 </div>
 
@@ -604,8 +618,11 @@
 <script>
     const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbzZk9ryu76vp65VuxSdCWrUXzRQY8w68O-1f0FPw1a0f9b-_InsxXLtJIKUtUd3KnMHqA/exec'; 
     
-    // VARIABEL PERLINDUNGAN ANTI-SPAM
+    // VARIABEL SISTEM ABSENSI BARU (GPS -> Masuk/Pulang -> Selfie -> Identify)
     let isProcessingAbsen = false;
+    let tempSelfieBase64 = null;
+    let pendingAbsenType = null;
+    let gpsWatchId = null;
 
     let state = {
         isAdmin: false, employees: [], schedule: {}, holidays: {},
@@ -669,7 +686,7 @@
                 const currentBtn = document.querySelector('.nav-btn.active') || document.querySelector('.menu-link.active');
                 if(currentBtn) {
                    if(currentBtn.innerText.toLowerCase().includes('jadwal')) currentTab = 'calendar';
-                   else if(currentBtn.innerText.toLowerCase().includes('scan')) currentTab = 'scan';
+                   else if(currentBtn.innerText.toLowerCase().includes('scan') || currentBtn.innerText.toLowerCase().includes('absen')) currentTab = 'scan';
                    else if(currentBtn.innerText.toLowerCase().includes('admin')) currentTab = 'admin';
                    else if(currentBtn.innerText.toLowerCase().includes('direktori')) currentTab = 'profile';
                 }
@@ -709,7 +726,6 @@
         if(page === 'admin' && !state.isAdmin) { document.getElementById('login-modal').style.display = 'flex'; document.getElementById('admin-pass').value = ''; return; }
         
         if (gpsWatchId) { navigator.geolocation.clearWatch(gpsWatchId); gpsWatchId = null; }
-        
         if(html5QrcodeScanner) { html5QrcodeScanner.clear().catch(e => console.warn(e)); html5QrcodeScanner = null; } 
         if(window.scanMap) { window.scanMap.remove(); window.scanMap = null; window.mapInitialized = false; }
         
@@ -719,7 +735,11 @@
         if(sb[map[page]]) sb[map[page]].classList.add('active'); if(nb[map[page]]) nb[map[page]].classList.add('active');
 
         const container = document.getElementById('main-content'); container.innerHTML = ''; window.scrollTo(0,0);
-        if(page === 'home') renderHome(container); else if(page === 'calendar') renderCalendar(container); else if(page === 'scan') renderScan(container); else if(page === 'admin') renderAdmin(container); else if(page === 'profile') renderProfile(container);
+        if(page === 'home') renderHome(container); 
+        else if(page === 'calendar') renderCalendar(container); 
+        else if(page === 'scan') renderScan(container); 
+        else if(page === 'admin') renderAdmin(container); 
+        else if(page === 'profile') renderProfile(container);
     }
 
     // === PAGE: HOME ===
@@ -845,13 +865,6 @@
         win.document.close();
     }
 
-    function handlePrintQR() {
-        const qrSrc = document.getElementById('qr-image').src; const qrName = document.getElementById('qr-name').innerText;
-        const win = window.open('', '_blank', 'height=500,width=500');
-        win.document.write(`<html><head><title>Cetak QR - ${qrName}</title></head><body style="text-align:center; font-family:sans-serif; padding-top: 50px;"><h2 style="margin-bottom:10px;">KARTU ABSENSI</h2><img src="${qrSrc}" style="width:300px; border:2px solid #000; padding:10px; border-radius:10px;"><h1 style="margin-top:20px;">${qrName}</h1><p>UPT PSDA WS Bondoyudo Baru</p><script>window.onload = function() { window.print(); window.close(); }<\/script></body></html>`);
-        win.document.close();
-    }
-
     // === PAGE: CALENDAR ===
     function renderCalendar(container) {
         const year = calendarDate.getFullYear(); const month = calendarDate.getMonth();
@@ -940,18 +953,29 @@
         }, 300);
     }
 
-    // === PAGE: SCAN QR ===
+    // === PAGE: SCAN (ABSENSI BARU) ===
     function renderScan(container) {
         container.innerHTML = `
-            <div class="dash-header"><h2>Scan QR Code</h2><p style="color:var(--text-muted)">Absensi Kehadiran</p></div>
+            <div class="dash-header"><h2>Live Absensi</h2><p style="color:var(--text-muted)">Verifikasi Kehadiran & Lokasi</p></div>
+            
             <div id="gps-status" style="padding:16px; text-align:center; background:#FFFBEB; color:#B45309; border-radius:16px; margin-bottom:20px; font-weight:700; display:flex; align-items:center; justify-content:center; gap:10px; border:1px solid #FCD34D;">
                 <i class="fa-solid fa-location-dot fa-fade" style="font-size:1.2rem;"></i> Menganalisa titik koordinat (GPS)...
             </div>
-            <!-- PETA LIVE (LEAFLET.JS) -->
-            <div id="scan-map"></div>
+            
+            <div id="scan-map" style="width: 100%; height: 250px; border-radius: 16px; margin-bottom: 24px; border: 2px solid var(--border); z-index: 10; display: none;"></div>
 
-            <div class="card" id="reader-container" style="padding:0; overflow:hidden; border:none; display:none; border-radius:20px; box-shadow:0 10px 30px rgba(0,0,0,0.15);">
-                <div id="reader"></div>
+            <!-- ACTION BUTTONS: TAMPIL JIKA DI DALAM RADIUS GPS -->
+            <div id="absen-action-container" class="card" style="display:none; flex-direction:column; gap:16px; margin-bottom:24px; border-left:4px solid var(--success); padding:20px; background:linear-gradient(145deg, #FFFFFF 0%, #F0FDF4 100%); text-align:center;">
+                <h3 style="margin:0; color:#166534;"><i class="fa-solid fa-shield-check"></i> Zona Lokasi Valid</h3>
+                <p style="font-size:0.85rem; color:var(--text-muted); margin-bottom:8px;">Silakan pilih jenis absen untuk memulai verifikasi wajah.</p>
+                <div style="display:flex; gap:12px;">
+                    <button class="btn btn-primary" style="flex:1; padding:16px; font-size:1.1rem; border-radius:16px; box-shadow:0 10px 20px rgba(37, 99, 235, 0.2);" onclick="startAbsenFlow('Masuk')">
+                        <i class="fa-solid fa-right-to-bracket"></i> MASUK
+                    </button>
+                    <button class="btn btn-danger" style="flex:1; padding:16px; font-size:1.1rem; border-radius:16px; box-shadow:0 10px 20px rgba(239, 68, 68, 0.2);" onclick="startAbsenFlow('Pulang')">
+                        <i class="fa-solid fa-right-from-bracket"></i> PULANG
+                    </button>
+                </div>
             </div>
             
             <div class="card">
@@ -980,19 +1004,16 @@
         return R * c * 1000; 
     }
 
-    let gpsWatchId = null;
-
     function startScanner() {
         const gpsStatus = document.getElementById('gps-status');
-        const readerContainer = document.getElementById('reader-container');
+        const absenActions = document.getElementById('absen-action-container');
         const mapDiv = document.getElementById('scan-map');
         
         if (gpsWatchId) navigator.geolocation.clearWatch(gpsWatchId);
 
         if (!state.instansi || !state.instansi.lat || !state.instansi.lng || !state.instansi.radius) {
-            gpsStatus.style.display = 'none'; mapDiv.style.display = 'none'; readerContainer.style.display = 'block'; 
-            isScannerRunning = true;
-            setTimeout(() => initHtml5Qrcode(), 100); 
+            gpsStatus.style.display = 'none'; mapDiv.style.display = 'none'; 
+            absenActions.style.display = 'flex'; 
             return;
         }
 
@@ -1028,20 +1049,11 @@
                     if (isInside) {
                         gpsStatus.innerHTML = `<i class="fa-solid fa-circle-check"></i> Sinyal GPS Kuat. Anda berada di area kantor (${Math.round(distance)} meter).`;
                         gpsStatus.style.background = '#DCFCE7'; gpsStatus.style.color = '#166534'; gpsStatus.style.borderColor = '#86EFAC';
-                        readerContainer.style.display = 'block'; 
-                        if (!isScannerRunning) {
-                            isScannerRunning = true;
-                            setTimeout(() => initHtml5Qrcode(), 100);
-                        }
+                        absenActions.style.display = 'flex';
                     } else {
                         gpsStatus.innerHTML = `<i class="fa-solid fa-triangle-exclamation"></i> GAGAL! Anda berada di luar radius absen.<br><span style="font-weight:400; font-size:0.85rem;">Jarak Anda: ${Math.round(distance)}m | Batas: ${radiusMaksimal}m</span>`;
                         gpsStatus.style.background = '#FEF2F2'; gpsStatus.style.color = '#B91C1C'; gpsStatus.style.borderColor = '#FECACA';
-                        readerContainer.style.display = 'none'; 
-                        if(html5QrcodeScanner && isScannerRunning) { 
-                            html5QrcodeScanner.clear().catch(e => console.warn(e)); 
-                            html5QrcodeScanner = null; 
-                            isScannerRunning = false;
-                        }
+                        absenActions.style.display = 'none'; 
                     }
                 },
                 (error) => {
@@ -1053,67 +1065,14 @@
         } else { gpsStatus.innerHTML = "Browser Anda tidak mendukung fitur lokasi (GPS)."; }
     }
 
-    function initHtml5Qrcode() {
-        if (!html5QrcodeScanner && typeof Html5QrcodeScanner !== 'undefined') { 
-            html5QrcodeScanner = new Html5QrcodeScanner("reader", { fps: 10, qrbox: {width: 250, height: 250} }, /* verbose= */ false); 
-            html5QrcodeScanner.render(onScanSuccess, function(){}); // Mengabaikan error render frame untuk kebersihan log
-        } else if (typeof Html5QrcodeScanner === 'undefined') {
-            showToast("Error", "Library Scanner gagal dimuat. Periksa internet Anda.", "error");
-        }
+    // --- ALUR ABSENSI BARU ---
+    function startAbsenFlow(type) {
+        pendingAbsenType = type;
+        openSelfieScanner();
     }
 
-    function onScanSuccess(decodedText, decodedResult) {
-        const audio = document.getElementById('scan-sound'); if(audio) audio.play();
-        
-        if(html5QrcodeScanner) { 
-            html5QrcodeScanner.clear().then(() => {
-                html5QrcodeScanner = null;
-                isScannerRunning = false;
-                setTimeout(() => processDecodedText(decodedText), 300);
-            }).catch(e => {
-                html5QrcodeScanner = null;
-                isScannerRunning = false;
-                processDecodedText(decodedText);
-            });
-        } else {
-            processDecodedText(decodedText);
-        }
-    }
-
-    function processDecodedText(decodedText) {
-        if (decodedText === GENERAL_QR_CODE) openSelectEmpModal();
-        else processScanResult(decodedText);
-    }
-
-    let pendingAbsenId = null;
-
-    function processScanResult(id) {
-        pendingAbsenId = id;
-        const emp = state.employees.find(e => String(e.id) === String(id));
-        if(!emp) { showToast("Peringatan", "Pegawai tidak ditemukan!", "error"); return navigateTo('scan'); }
-        
-        document.getElementById('absen-emp-name').innerText = emp.name || '-';
-        const scansToday = state.recentScans.filter(s => String(s.id) === String(id));
-        const hasMasuk = scansToday.some(s => s.status === 'Masuk');
-        const hasPulang = scansToday.some(s => s.status === 'Pulang');
-        
-        const btnMasuk = document.getElementById('btn-absen-masuk'); const btnPulang = document.getElementById('btn-absen-pulang');
-        if (hasMasuk) { btnMasuk.disabled = true; btnMasuk.style.opacity = '0.4'; btnMasuk.innerHTML = `<i class="fa-solid fa-check"></i> Sudah Masuk`; } 
-        else { btnMasuk.disabled = false; btnMasuk.style.opacity = '1'; btnMasuk.innerHTML = `<i class="fa-solid fa-right-to-bracket"></i> Masuk`; }
-        if (hasPulang) { btnPulang.disabled = true; btnPulang.style.opacity = '0.4'; btnPulang.innerHTML = `<i class="fa-solid fa-check"></i> Sudah Pulang`; } 
-        else { btnPulang.disabled = false; btnPulang.style.opacity = '1'; btnPulang.innerHTML = `<i class="fa-solid fa-right-from-bracket"></i> Pulang`; }
-
-        document.getElementById('absen-type-modal').style.display = 'flex';
-    }
-
-    function cancelAbsenProcess() { closeModal('absen-type-modal'); navigateTo('scan'); }
-
-    // --- INTEGRASI SCANNER WAJAH ---
-    let selfieStream = null; let trackerTask = null; let faceDetectCounter = 0; let pendingAbsenType = null; let fallbackTimer = null;
-
-    function openSelfieScanner(type) {
+    function openSelfieScanner() {
         if(isProcessingAbsen) return; 
-        closeModal('absen-type-modal'); pendingAbsenType = type;
         document.getElementById('selfie-modal').style.display = 'flex';
         document.getElementById('manual-capture-btn').style.display = 'none';
         document.getElementById('selfie-scan-line').style.display = 'none';
@@ -1129,88 +1088,72 @@
             return;
         }
 
-        function attemptCamera(retriesLeft) {
-            navigator.mediaDevices.getUserMedia({ video: { facingMode: 'user' }, audio: false })
-            .catch(err => {
-                console.warn("Gagal kamera depan, mencoba kamera utama...", err);
-                return navigator.mediaDevices.getUserMedia({ video: true, audio: false });
-            })
-            .then(stream => {
-                selfieStream = stream; 
-                video.srcObject = stream; 
-                
-                video.onloadedmetadata = () => {
-                    video.play().then(() => {
-                        instruction.innerText = "Arahkan wajah Anda ke dalam oval"; 
-                        document.getElementById('selfie-scan-line').style.display = 'block'; 
+        navigator.mediaDevices.getUserMedia({ video: { facingMode: 'user' }, audio: false })
+        .catch(err => {
+            console.warn("Gagal kamera depan, mencoba kamera utama...", err);
+            return navigator.mediaDevices.getUserMedia({ video: true, audio: false });
+        })
+        .then(stream => {
+            selfieStream = stream; 
+            video.srcObject = stream; 
+            
+            video.onloadedmetadata = () => {
+                video.play().then(() => {
+                    instruction.innerText = "Arahkan wajah Anda ke dalam oval"; 
+                    document.getElementById('selfie-scan-line').style.display = 'block'; 
+                    
+                    try {
+                        const tracker = new tracking.ObjectTracker('face'); 
+                        tracker.setInitialScale(4); 
+                        tracker.setStepSize(2); 
+                        tracker.setEdgesDensity(0.1);
+                        trackerTask = tracking.track('#selfie-video', tracker);
                         
-                        try {
-                            const tracker = new tracking.ObjectTracker('face'); 
-                            tracker.setInitialScale(4); 
-                            tracker.setStepSize(2); 
-                            tracker.setEdgesDensity(0.1);
-                            trackerTask = tracking.track('#selfie-video', tracker);
-                            
-                            tracker.on('track', function(event) {
-                                if (event.data.length === 0) {
-                                    instruction.innerText = "Wajah tidak terdeteksi. Lihat ke kamera!"; 
-                                    instruction.style.color = "#F87171"; boxUi.style.borderColor = "#EF4444"; boxUi.style.boxShadow = "0 0 40px rgba(239, 68, 68, 0.4), inset 0 0 20px rgba(0,0,0,0.5)"; 
-                                    faceDetectCounter = 0;
-                                } else {
-                                    faceDetectCounter++; 
-                                    instruction.innerText = "Tahan Posisi... (" + faceDetectCounter + "/10)"; 
-                                    instruction.style.color = "#4ADE80"; boxUi.style.borderColor = "#4ADE80"; boxUi.style.boxShadow = "0 0 40px rgba(74, 222, 128, 0.6), inset 0 0 20px rgba(0,0,0,0.5)";
-                                    if (faceDetectCounter >= 10) { 
-                                        if(trackerTask) trackerTask.stop(); 
-                                        clearTimeout(fallbackTimer); 
-                                        takeSelfieAndSend(); 
-                                    }
+                        tracker.on('track', function(event) {
+                            if (event.data.length === 0) {
+                                instruction.innerText = "Wajah tidak terdeteksi. Lihat ke kamera!"; 
+                                instruction.style.color = "#F87171"; boxUi.style.borderColor = "#EF4444"; boxUi.style.boxShadow = "0 0 40px rgba(239, 68, 68, 0.4), inset 0 0 20px rgba(0,0,0,0.5)"; 
+                                faceDetectCounter = 0;
+                            } else {
+                                faceDetectCounter++; 
+                                instruction.innerText = "Tahan Posisi... (" + faceDetectCounter + "/10)"; 
+                                instruction.style.color = "#4ADE80"; boxUi.style.borderColor = "#4ADE80"; boxUi.style.boxShadow = "0 0 40px rgba(74, 222, 128, 0.6), inset 0 0 20px rgba(0,0,0,0.5)";
+                                if (faceDetectCounter >= 10) { 
+                                    if(trackerTask) trackerTask.stop(); 
+                                    clearTimeout(fallbackTimer); 
+                                    captureSelfieAndIdentify(); 
                                 }
-                            });
-                        } catch (e) {
-                            console.error("AI Face Tracker Error:", e);
-                            document.getElementById('manual-capture-btn').style.display = 'block'; 
-                            instruction.innerText = "Posisikan wajah lalu klik Ambil Foto.";
-                        }
-                    }).catch(err => {
-                        console.error("Gagal memutar video:", err);
-                    });
-                };
-
-                fallbackTimer = setTimeout(() => {
-                    if(document.getElementById('selfie-modal').style.display === 'flex') { 
+                            }
+                        });
+                    } catch (e) {
+                        console.error("AI Face Tracker Error:", e);
                         document.getElementById('manual-capture-btn').style.display = 'block'; 
-                        instruction.innerText = "Deteksi sulit? Klik tombol di bawah."; 
-                        instruction.style.color = "#FBBF24"; 
+                        instruction.innerText = "Posisikan wajah lalu klik Ambil Foto.";
                     }
-                }, 5000);
-                
-            }).catch(err => { 
-                console.error("Kamera Error Detail:", err);
-                
-                if ((err.name === "NotReadableError" || err.name === "TrackStartError") && retriesLeft > 0) {
-                    instruction.innerText = "Sistem me-reset lensa (" + retriesLeft + ")...";
-                    setTimeout(() => attemptCamera(retriesLeft - 1), 1000);
-                    return;
-                }
+                }).catch(err => console.error("Gagal memutar video:", err));
+            };
 
-                let errMsg = "Kamera tidak dapat diakses!";
-                if (err.name === "NotAllowedError" || err.name === "PermissionDeniedError") errMsg = "Izin kamera ditolak oleh Browser/HP Anda!";
-                if (err.name === "NotFoundError") errMsg = "Kamera tidak ditemukan!";
-                if (err.name === "NotReadableError" || err.name === "TrackStartError") errMsg = "Kamera macet (Tahan oleh OS). Coba restart peramban/browser.";
-                
-                showToast("Error", errMsg, "error"); 
-                cancelSelfie(); 
-            });
-        }
-        
-        // Mulai eksekusi dengan jeda awal
-        setTimeout(() => attemptCamera(3), 500); 
+            fallbackTimer = setTimeout(() => {
+                if(document.getElementById('selfie-modal').style.display === 'flex') { 
+                    document.getElementById('manual-capture-btn').style.display = 'block'; 
+                    instruction.innerText = "Deteksi sulit? Klik tombol di bawah."; 
+                    instruction.style.color = "#FBBF24"; 
+                }
+            }, 5000);
+            
+        }).catch(err => { 
+            console.error("Kamera Error Detail:", err);
+            let errMsg = "Kamera tidak dapat diakses!";
+            if (err.name === "NotAllowedError" || err.name === "PermissionDeniedError") errMsg = "Izin kamera ditolak oleh Browser/HP Anda!";
+            if (err.name === "NotFoundError") errMsg = "Kamera tidak ditemukan!";
+            showToast("Error", errMsg, "error"); 
+            cancelSelfie(); 
+        });
     }
 
-    function forceCapture() { if(isProcessingAbsen) return; if(trackerTask) trackerTask.stop(); clearTimeout(fallbackTimer); takeSelfieAndSend(); }
+    function forceCapture() { if(isProcessingAbsen) return; if(trackerTask) trackerTask.stop(); clearTimeout(fallbackTimer); captureSelfieAndIdentify(); }
 
-    function takeSelfieAndSend() {
+    function captureSelfieAndIdentify() {
         if(isProcessingAbsen) return;
         isProcessingAbsen = true; 
         
@@ -1221,21 +1164,82 @@
         const video = document.getElementById('selfie-video'); const canvas = document.getElementById('selfie-canvas');
         canvas.width = video.videoWidth; canvas.height = video.videoHeight; const ctx = canvas.getContext('2d');
         ctx.translate(canvas.width, 0); ctx.scale(-1, 1); ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-        const compressedSelfieBase64 = canvas.toDataURL('image/jpeg', 0.6); 
-        stopSelfieCamera(); document.getElementById('selfie-modal').style.display = 'none';
-        sendScanData(pendingAbsenId, pendingAbsenType, compressedSelfieBase64);
+        tempSelfieBase64 = canvas.toDataURL('image/jpeg', 0.6); 
+        
+        stopSelfieCamera(); 
+        document.getElementById('selfie-modal').style.display = 'none';
+        
+        isProcessingAbsen = false; 
+        document.getElementById('manual-capture-btn').style.opacity = '1';
+        document.getElementById('manual-capture-btn').style.pointerEvents = 'auto';
+
+        openIdentifyModal();
     }
 
     function stopSelfieCamera() { if (trackerTask) { trackerTask.stop(); trackerTask = null; } if (selfieStream) { selfieStream.getTracks().forEach(track => track.stop()); selfieStream = null; } }
-    function cancelSelfie() { isProcessingAbsen = false; stopSelfieCamera(); clearTimeout(fallbackTimer); document.getElementById('selfie-modal').style.display = 'none'; navigateTo('scan'); }
+    
+    function cancelSelfie() { 
+        isProcessingAbsen = false; stopSelfieCamera(); clearTimeout(fallbackTimer); 
+        document.getElementById('selfie-modal').style.display = 'none'; 
+        tempSelfieBase64 = null; pendingAbsenType = null;
+    }
 
-    // === TAMPILKAN QR INDIVIDU ===
-    function showQR(id, name) { document.getElementById('qr-image').src = `https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${id}`; document.getElementById('qr-name').innerText = name || ''; document.getElementById('qr-modal').style.display = 'flex'; }
+    function openIdentifyModal() {
+        document.getElementById('search-emp-general').value = ''; 
+        renderGeneralEmpList(''); 
+        document.getElementById('select-emp-modal').style.display = 'flex';
+    }
 
-    // FUNGSI LOGIKA MEMILIH NAMA (QR UMUM)
-    function showGeneralQR() { document.getElementById('qr-image').src = `https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${GENERAL_QR_CODE}`; document.getElementById('qr-name').innerText = "QR ABSENSI KANTOR"; document.getElementById('qr-modal').style.display = 'flex'; }
-    function openSelectEmpModal() { document.getElementById('search-emp-general').value = ''; renderGeneralEmpList(''); document.getElementById('select-emp-modal').style.display = 'flex'; }
+    function openStandaloneQRScanner() {
+        closeModal('select-emp-modal');
+        document.getElementById('standalone-qr-modal').style.display = 'flex';
+        
+        if (!html5QrcodeScanner) { 
+            html5QrcodeScanner = new Html5QrcodeScanner("standalone-reader", { fps: 10, qrbox: {width: 250, height: 250} }, false); 
+            html5QrcodeScanner.render((decodedText) => {
+                const audio = document.getElementById('scan-sound'); if(audio) audio.play();
+                if (decodedText !== GENERAL_QR_CODE) {
+                    if(html5QrcodeScanner) { html5QrcodeScanner.clear().catch(e=>console.warn(e)); html5QrcodeScanner=null;}
+                    finalizeAbsen(decodedText);
+                }
+            }, function(){}); 
+        }
+    }
 
+    function cancelStandaloneQR() {
+        if(html5QrcodeScanner) { html5QrcodeScanner.clear().catch(e=>console.warn(e)); html5QrcodeScanner=null;}
+        closeModal('standalone-qr-modal');
+        document.getElementById('select-emp-modal').style.display = 'flex'; 
+    }
+
+    function cancelAbsenFlow() { closeModal('select-emp-modal'); tempSelfieBase64 = null; pendingAbsenType = null; }
+
+    function finalizeAbsen(id) {
+        closeModal('select-emp-modal');
+        closeModal('standalone-qr-modal'); 
+        
+        const emp = state.employees.find(e => String(e.id) === String(id));
+        if(!emp) { showToast("Peringatan", "Data pegawai tidak valid atau ID salah!", "error"); return; }
+        
+        sendScanData(id, pendingAbsenType, tempSelfieBase64);
+    }
+
+    async function sendScanData(id, statusType, fotoBase64) {
+        showLoading(true);
+        try {
+            let locString = 'Tanpa GPS'; if (userLocation) { locString = `Lat: ${userLocation.lat.toFixed(5)}, Lng: ${userLocation.lng.toFixed(5)}`; }
+            const payload = { action: 'scan', data: { id: id, lokasi: locString, status: statusType, foto: fotoBase64 } };
+            const res = await fetch(SCRIPT_URL, { method: 'POST', body: JSON.stringify(payload) }); const result = await res.json();
+            
+            if(result.status === 'Sukses') {
+                document.getElementById('res-msg').innerText = `${result.nama} - ${statusType}`; document.getElementById('result-modal').style.display = 'flex';
+                localStorage.removeItem('eJakaData'); await loadData(); 
+            } else { showToast("Gagal", result.message, "error"); }
+        } catch(e) { showToast("Error", "Gagal koneksi ke server", "error"); } 
+        finally { showLoading(false); tempSelfieBase64 = null; pendingAbsenType = null; }
+    }
+
+    // FUNGSI LOGIKA MEMILIH NAMA
     function renderGeneralEmpList(keyword) {
         const container = document.getElementById('general-emp-list'); const kw = keyword.toLowerCase();
         const filtered = state.employees.filter(e => e.status !== 'Non-Aktif' && String(e.name || '').toLowerCase().includes(kw)).sort((a,b) => String(a.name || '').localeCompare(String(b.name || '')));
@@ -1243,7 +1247,7 @@
         if(filtered.length === 0) { container.innerHTML = '<div style="text-align:center; padding:30px; color:var(--text-muted); font-style:italic;">Nama tidak ditemukan.</div>'; return; }
 
         container.innerHTML = filtered.map(e => `
-            <div class="emp-item" style="cursor:pointer; background:#FFFFFF; border-radius:12px; border:1px solid #E2E8F0; padding:10px 14px; box-shadow: 0 2px 5px rgba(0,0,0,0.02);" onclick="selectEmpForGeneral('${e.id}')">
+            <div class="emp-item" style="cursor:pointer; background:#FFFFFF; border-radius:12px; border:1px solid #E2E8F0; padding:10px 14px; box-shadow: 0 2px 5px rgba(0,0,0,0.02);" onclick="finalizeAbsen('${e.id}')">
                 <div class="emp-left" style="gap:12px;">
                     <img src="${e.photo || `https://ui-avatars.com/api/?name=${e.name}&background=random`}" class="emp-img" loading="lazy" style="width:40px; height:40px;">
                     <div class="emp-details"><span class="emp-name" style="font-size:0.95rem;">${e.name || '-'}</span><span style="font-size:0.75rem; color:var(--text-muted);">${e.region || '-'} • ${e.role || '-'}</span></div>
@@ -1254,8 +1258,10 @@
     }
 
     function filterGeneralEmp(kw) { renderGeneralEmpList(kw); }
-    function selectEmpForGeneral(id) { closeModal('select-emp-modal'); processScanResult(id); }
-    function cancelGeneralScan() { closeModal('select-emp-modal'); navigateTo('scan'); }
+
+    // === TAMPILKAN QR INDIVIDU ===
+    function showQR(id, name) { document.getElementById('qr-image').src = `https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${id}`; document.getElementById('qr-name').innerText = name || ''; document.getElementById('qr-modal').style.display = 'flex'; }
+    function showGeneralQR() { document.getElementById('qr-image').src = `https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${GENERAL_QR_CODE}`; document.getElementById('qr-name').innerText = "QR ABSENSI KANTOR"; document.getElementById('qr-modal').style.display = 'flex'; }
 
     // === PAGE: PROFILE ===
     function renderProfile(container) {
@@ -1625,6 +1631,7 @@
         if(confirm("⚠️ YAKIN INGIN MENGHAPUS?\n\nData pegawai ini akan dihapus permanen dari sistem. Tindakan ini tidak bisa dibatalkan.")) { 
             const oldEmployeesStr = JSON.stringify(state.employees);
             state.employees = state.employees.filter(x => String(x.id) !== String(id)); 
+            
             const success = await saveData();
             if (success) { 
                 renderAdmin(document.getElementById('main-content')); 
