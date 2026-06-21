@@ -100,6 +100,7 @@
         .hero-slide.active .hero-badge { opacity: 1; transform: translateY(0); transition-delay: 0.1s; }
         .hero-slide.active .hero-name { opacity: 1; transform: translateY(0); transition-delay: 0.2s; }
         .hero-slide.active .hero-role { opacity: 1; transform: translateY(0); transition-delay: 0.3s; }
+        
         .hero-image-wrapper { width: 300px; height: 100%; position: absolute; right: 20px; bottom: 0; display: flex; align-items: flex-end; justify-content: center; z-index: 1; }
         .hero-img-3d { height: 130%; width: auto; object-fit: contain; filter: drop-shadow(-10px 10px 20px rgba(0,0,0,0.3)); transform: translateY(50%) scale(0.9); transition: all 0.8s cubic-bezier(0.34, 1.56, 0.64, 1); opacity: 0; }
         .hero-slide.active .hero-img-3d { transform: translateY(10%) scale(1); opacity: 1; transition-delay: 0.2s; }
@@ -383,7 +384,7 @@
         <nav>
             <a class="menu-link active" onclick="navigateTo('home')"><i class="fa-solid fa-th-large"></i> Dashboard</a>
             <a class="menu-link" onclick="navigateTo('calendar')"><i class="fa-solid fa-calendar-days"></i> Jadwal</a>
-            <a class="menu-link" onclick="navigateTo('scan')"><i class="fa-solid fa-qrcode"></i> Scan QR</a>
+            <a class="menu-link" onclick="navigateTo('scan')"><i class="fa-solid fa-user-check"></i> Absensi</a>
             <a class="menu-link" onclick="navigateTo('admin')"><i class="fa-solid fa-users-gear"></i> Admin</a>
             <a class="menu-link" onclick="navigateTo('profile')"><i class="fa-solid fa-address-book"></i> Direktori</a>
         </nav>
@@ -400,7 +401,7 @@
     <nav id="bottom-nav">
         <button class="nav-btn active" onclick="navigateTo('home')"><i class="fa-solid fa-th-large"></i> Home</button>
         <button class="nav-btn" onclick="navigateTo('calendar')"><i class="fa-solid fa-calendar-days"></i> Jadwal</button>
-        <div class="scan-fab" onclick="navigateTo('scan')"><i class="fa-solid fa-qrcode"></i></div>
+        <div class="scan-fab" onclick="navigateTo('scan')"><i class="fa-solid fa-user-check"></i></div>
         <button class="nav-btn" onclick="navigateTo('admin')"><i class="fa-solid fa-users-gear"></i> Admin</button>
         <button class="nav-btn" onclick="navigateTo('profile')"><i class="fa-solid fa-address-book"></i> Direktori</button>
     </nav>
@@ -865,6 +866,13 @@
         win.document.close();
     }
 
+    function handlePrintQR() {
+        const qrSrc = document.getElementById('qr-image').src; const qrName = document.getElementById('qr-name').innerText;
+        const win = window.open('', '_blank', 'height=500,width=500');
+        win.document.write(`<html><head><title>Cetak QR - ${qrName}</title></head><body style="text-align:center; font-family:sans-serif; padding-top: 50px;"><h2 style="margin-bottom:10px;">KARTU ABSENSI</h2><img src="${qrSrc}" style="width:300px; border:2px solid #000; padding:10px; border-radius:10px;"><h1 style="margin-top:20px;">${qrName}</h1><p>UPT PSDA WS Bondoyudo Baru</p><script>window.onload = function() { window.print(); window.close(); }<\/script></body></html>`);
+        win.document.close();
+    }
+
     // === PAGE: CALENDAR ===
     function renderCalendar(container) {
         const year = calendarDate.getFullYear(); const month = calendarDate.getMonth();
@@ -1160,7 +1168,13 @@
         document.getElementById('manual-capture-btn').style.opacity = '0.5';
         document.getElementById('manual-capture-btn').style.pointerEvents = 'none';
 
-        const audio = new Audio('https://assets.mixkit.co/active_storage/sfx/2862/2862-preview.mp3'); audio.play();
+        // BUG FIX: Menggunakan elemen audio yang sudah ada di HTML, hindari pembuatan class Audio baru yang berisiko memicu vibrasi aneh di HP Android.
+        const audio = document.getElementById('scan-sound'); 
+        if(audio) {
+            audio.currentTime = 0;
+            audio.play().catch(e => console.warn("Audio play blocked", e));
+        }
+
         const video = document.getElementById('selfie-video'); const canvas = document.getElementById('selfie-canvas');
         canvas.width = video.videoWidth; canvas.height = video.videoHeight; const ctx = canvas.getContext('2d');
         ctx.translate(canvas.width, 0); ctx.scale(-1, 1); ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
@@ -1220,6 +1234,22 @@
         
         const emp = state.employees.find(e => String(e.id) === String(id));
         if(!emp) { showToast("Peringatan", "Data pegawai tidak valid atau ID salah!", "error"); return; }
+        
+        // BUG FIX: VALIDASI ABSENSI GANDA (STATUS DETECTION)
+        const scansToday = state.recentScans.filter(s => String(s.id) === String(id));
+        const hasMasuk = scansToday.some(s => s.status === 'Masuk');
+        const hasPulang = scansToday.some(s => s.status === 'Pulang');
+
+        if (pendingAbsenType === 'Masuk' && hasMasuk) {
+            showToast("Peringatan", `Halo ${emp.name}, Anda SUDAH absen MASUK hari ini!`, "warning");
+            cancelAbsenFlow(); 
+            return;
+        }
+        if (pendingAbsenType === 'Pulang' && hasPulang) {
+            showToast("Peringatan", `Halo ${emp.name}, Anda SUDAH absen PULANG hari ini!`, "warning");
+            cancelAbsenFlow(); 
+            return;
+        }
         
         sendScanData(id, pendingAbsenType, tempSelfieBase64);
     }
