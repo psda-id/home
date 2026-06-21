@@ -1478,11 +1478,17 @@
         } catch(e) { showToast("Gagal", "Gagal menyimpan pegawai", "error"); } finally { showLoading(false); }
     }
 
-    function delEmp(id) { 
+    async function delEmp(id) { 
         if(confirm("⚠️ YAKIN INGIN MENGHAPUS?\n\nData pegawai ini akan dihapus permanen dari sistem. Tindakan ini tidak bisa dibatalkan.")) { 
             const oldEmployeesStr = JSON.stringify(state.employees);
             state.employees = state.employees.filter(x => String(x.id) !== String(id)); 
-            saveData().then((success) => { if (success) renderAdmin(document.getElementById('main-content')); else state.employees = JSON.parse(oldEmployeesStr); }); 
+            
+            const success = await saveData();
+            if (success) {
+                renderAdmin(document.getElementById('main-content'));
+            } else {
+                state.employees = JSON.parse(oldEmployeesStr);
+            }
         } 
     }
     
