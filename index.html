@@ -100,7 +100,6 @@
         .hero-slide.active .hero-badge { opacity: 1; transform: translateY(0); transition-delay: 0.1s; }
         .hero-slide.active .hero-name { opacity: 1; transform: translateY(0); transition-delay: 0.2s; }
         .hero-slide.active .hero-role { opacity: 1; transform: translateY(0); transition-delay: 0.3s; }
-        
         .hero-image-wrapper { width: 300px; height: 100%; position: absolute; right: 20px; bottom: 0; display: flex; align-items: flex-end; justify-content: center; z-index: 1; }
         .hero-img-3d { height: 130%; width: auto; object-fit: contain; filter: drop-shadow(-10px 10px 20px rgba(0,0,0,0.3)); transform: translateY(50%) scale(0.9); transition: all 0.8s cubic-bezier(0.34, 1.56, 0.64, 1); opacity: 0; }
         .hero-slide.active .hero-img-3d { transform: translateY(10%) scale(1); opacity: 1; transition-delay: 0.2s; }
@@ -280,7 +279,7 @@
         .dir-role { font-size: 0.7rem; color: var(--text-muted); font-weight: 700; background: #F1F5F9; padding: 4px 10px; border-radius: 8px; z-index: 1; position: relative; letter-spacing: 0.5px; }
         .dir-region { font-size: 0.65rem; color: var(--primary); font-weight: 700; margin-top: 8px; text-transform: uppercase; z-index: 1; position: relative; }
 
-        /* --- STYLE ID CARD PORTRAIT (DISEMPURNAKAN UNTUK DESKTOP & MOBILE) --- */
+        /* --- STYLE ID CARD PORTRAIT --- */
         .id-card-preview-container { display: flex; justify-content: center; width: 100%; }
         .idc-portrait-wrapper { display: flex; flex-direction: row; gap: 24px; justify-content: center; background: transparent; padding: 10px; }
         .idc-p-card { width: 320px; height: 520px; background: #FFFFFF; border-radius: 15px; position: relative; overflow: hidden; box-shadow: 0 15px 35px rgba(0,0,0,0.15); font-family: 'Plus Jakarta Sans', sans-serif; flex-shrink: 0; }
@@ -583,7 +582,7 @@
 
 <div id="selfie-modal" class="modal-overlay" style="z-index: 300; background: rgba(0,0,0,0.9);">
     <div style="position:relative; width:100%; height:100%; display:flex; flex-direction:column; align-items:center; justify-content:center;">
-        <h3 style="color:white; z-index:10; margin-bottom:20px; font-weight:800; text-align:center;" id="selfie-instruction">Mempersiapkan Kamera...</h3>
+        <h3 style="color:white; z-index:10; margin-bottom:20px; font-weight:800; text-align:center;" id="selfie-instruction">Arahkan wajah Anda ke dalam oval</h3>
         <div class="face-scanner-box" id="scanner-box-ui">
             <video id="selfie-video" class="fs-video" autoplay playsinline muted></video>
             <div id="selfie-scan-line" class="fs-scan-line"></div>
@@ -593,9 +592,6 @@
             <button id="manual-capture-btn" class="btn btn-primary" style="display:none; padding:12px 24px;" onclick="forceCapture()"><i class="fa-solid fa-camera"></i> Ambil Foto</button>
         </div>
         <canvas id="selfie-canvas" style="display:none;"></canvas>
-        
-        <!-- THE BULLETPROOF NATIVE CAMERA FALLBACK -->
-        <input type="file" id="native-camera-fallback" accept="image/*" capture="user" style="display:none;" onchange="handleNativeCamera(this)">
     </div>
 </div>
 
@@ -627,7 +623,6 @@
     let calendarDate = new Date(); let selectedDateStr = new Date().toISOString().split('T')[0];
     let currentFileBase64 = null; let heroInterval; let html5QrcodeScanner; 
     let searchTimeout; let adminSearchTimeout; let userLocation = null; 
-    let isScannerRunning = false;
     const GENERAL_QR_CODE = "EJAKA_GENERAL_ABSENSI_2026";
     let deferredPrompt;
 
@@ -715,12 +710,7 @@
         
         if (gpsWatchId) { navigator.geolocation.clearWatch(gpsWatchId); gpsWatchId = null; }
         
-        if(html5QrcodeScanner) { 
-            html5QrcodeScanner.clear().catch(e => console.warn(e)); 
-            html5QrcodeScanner = null; 
-            isScannerRunning = false;
-        } 
-        
+        if(html5QrcodeScanner) { html5QrcodeScanner.clear().catch(e => console.warn(e)); html5QrcodeScanner = null; } 
         if(window.scanMap) { window.scanMap.remove(); window.scanMap = null; window.mapInitialized = false; }
         
         document.querySelectorAll('.menu-link, .nav-btn').forEach(el => el.classList.remove('active'));
@@ -957,6 +947,7 @@
             <div id="gps-status" style="padding:16px; text-align:center; background:#FFFBEB; color:#B45309; border-radius:16px; margin-bottom:20px; font-weight:700; display:flex; align-items:center; justify-content:center; gap:10px; border:1px solid #FCD34D;">
                 <i class="fa-solid fa-location-dot fa-fade" style="font-size:1.2rem;"></i> Menganalisa titik koordinat (GPS)...
             </div>
+            <!-- PETA LIVE (LEAFLET.JS) -->
             <div id="scan-map"></div>
 
             <div class="card" id="reader-container" style="padding:0; overflow:hidden; border:none; display:none; border-radius:20px; box-shadow:0 10px 30px rgba(0,0,0,0.15);">
@@ -990,7 +981,6 @@
     }
 
     let gpsWatchId = null;
-    let gpsDebounceTimer = null;
 
     function startScanner() {
         const gpsStatus = document.getElementById('gps-status');
@@ -1035,32 +1025,22 @@
                         window.mapInitialized = true;
                     }
 
-                    // ANTI-FLICKER GPS: Gunakan Debounce agar kamera tidak mati-hidup dengan cepat
-                    clearTimeout(gpsDebounceTimer);
-                    
                     if (isInside) {
                         gpsStatus.innerHTML = `<i class="fa-solid fa-circle-check"></i> Sinyal GPS Kuat. Anda berada di area kantor (${Math.round(distance)} meter).`;
                         gpsStatus.style.background = '#DCFCE7'; gpsStatus.style.color = '#166534'; gpsStatus.style.borderColor = '#86EFAC';
-                        
-                        // Beri waktu DOM render sebelum menyalakan kamera
+                        readerContainer.style.display = 'block'; 
                         if (!isScannerRunning) {
-                            readerContainer.style.display = 'block';
                             isScannerRunning = true;
-                            gpsDebounceTimer = setTimeout(() => { initHtml5Qrcode(); }, 200);
+                            setTimeout(() => initHtml5Qrcode(), 100);
                         }
                     } else {
                         gpsStatus.innerHTML = `<i class="fa-solid fa-triangle-exclamation"></i> GAGAL! Anda berada di luar radius absen.<br><span style="font-weight:400; font-size:0.85rem;">Jarak Anda: ${Math.round(distance)}m | Batas: ${radiusMaksimal}m</span>`;
                         gpsStatus.style.background = '#FEF2F2'; gpsStatus.style.color = '#B91C1C'; gpsStatus.style.borderColor = '#FECACA';
-                        
-                        if (isScannerRunning) {
-                            gpsDebounceTimer = setTimeout(() => {
-                                readerContainer.style.display = 'none'; 
-                                if(html5QrcodeScanner) { 
-                                    html5QrcodeScanner.clear().catch(e => console.warn(e)); 
-                                    html5QrcodeScanner = null; 
-                                }
-                                isScannerRunning = false;
-                            }, 500);
+                        readerContainer.style.display = 'none'; 
+                        if(html5QrcodeScanner && isScannerRunning) { 
+                            html5QrcodeScanner.clear().catch(e => console.warn(e)); 
+                            html5QrcodeScanner = null; 
+                            isScannerRunning = false;
                         }
                     }
                 },
@@ -1086,12 +1066,18 @@
         const audio = document.getElementById('scan-sound'); if(audio) audio.play();
         
         if(html5QrcodeScanner) { 
-            // PROSES TRANSISI CERDAS: Hancurkan track QR di background agar kamera depan bisa jalan nanti
-            html5QrcodeScanner.clear().catch(e => console.warn(e));
-            html5QrcodeScanner = null;
-            isScannerRunning = false;
-        } 
-        processDecodedText(decodedText);
+            html5QrcodeScanner.clear().then(() => {
+                html5QrcodeScanner = null;
+                isScannerRunning = false;
+                setTimeout(() => processDecodedText(decodedText), 300);
+            }).catch(e => {
+                html5QrcodeScanner = null;
+                isScannerRunning = false;
+                processDecodedText(decodedText);
+            });
+        } else {
+            processDecodedText(decodedText);
+        }
     }
 
     function processDecodedText(decodedText) {
@@ -1125,37 +1111,30 @@
     // --- INTEGRASI SCANNER WAJAH ---
     let selfieStream = null; let trackerTask = null; let faceDetectCounter = 0; let pendingAbsenType = null; let fallbackTimer = null;
 
-    // FUNGSI KILL-SWITCH SEMUA KAMERA (Untuk memastikan lensa terlepas dari QR)
-    function forceKillAllCameras() {
-        if (selfieStream) { selfieStream.getTracks().forEach(t => t.stop()); selfieStream = null; }
-        // Coba basmi track liar yang mungkin tertinggal
-        navigator.mediaDevices.getUserMedia({video: true}).then(s => s.getTracks().forEach(t => t.stop())).catch(e=>{});
-    }
-
     function openSelfieScanner(type) {
         if(isProcessingAbsen) return; 
         closeModal('absen-type-modal'); pendingAbsenType = type;
-        
-        // Panggil pembunuh track sebelum memunculkan modal Wajah
-        forceKillAllCameras();
-
         document.getElementById('selfie-modal').style.display = 'flex';
         document.getElementById('manual-capture-btn').style.display = 'none';
         document.getElementById('selfie-scan-line').style.display = 'none';
         
         const instruction = document.getElementById('selfie-instruction'); const boxUi = document.getElementById('scanner-box-ui');
-        instruction.innerText = "Menyiapkan Lensa..."; instruction.style.color = "white"; boxUi.style.borderColor = "#64748B"; 
+        instruction.innerText = "Membuka Kamera Wajah..."; instruction.style.color = "white"; boxUi.style.borderColor = "#64748B"; 
         faceDetectCounter = 0;
         const video = document.getElementById('selfie-video');
         
-        // JEDA 800ms: Memberikan waktu bernapas bagi OS Android/iOS untuk me-reset Hardware Kamera
-        setTimeout(() => {
-            if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
-                fallbackToNativeCamera(instruction);
-                return;
-            }
+        if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+            showToast("Error", "Browser Anda tidak mendukung fitur kamera.", "error");
+            cancelSelfie();
+            return;
+        }
 
+        function attemptCamera(retriesLeft) {
             navigator.mediaDevices.getUserMedia({ video: { facingMode: 'user' }, audio: false })
+            .catch(err => {
+                console.warn("Gagal kamera depan, mencoba kamera utama...", err);
+                return navigator.mediaDevices.getUserMedia({ video: true, audio: false });
+            })
             .then(stream => {
                 selfieStream = stream; 
                 video.srcObject = stream; 
@@ -1195,11 +1174,9 @@
                         }
                     }).catch(err => {
                         console.error("Gagal memutar video:", err);
-                        fallbackToNativeCamera(instruction);
                     });
                 };
 
-                // Fallback manual button jika AI lambat
                 fallbackTimer = setTimeout(() => {
                     if(document.getElementById('selfie-modal').style.display === 'flex') { 
                         document.getElementById('manual-capture-btn').style.display = 'block'; 
@@ -1209,53 +1186,26 @@
                 }, 5000);
                 
             }).catch(err => { 
-                console.warn("WebRTC Gagal (Hardware Locked/Denied). Mengalihkan ke Native Camera...", err);
-                fallbackToNativeCamera(instruction);
+                console.error("Kamera Error Detail:", err);
+                
+                if ((err.name === "NotReadableError" || err.name === "TrackStartError") && retriesLeft > 0) {
+                    instruction.innerText = "Sistem me-reset lensa (" + retriesLeft + ")...";
+                    setTimeout(() => attemptCamera(retriesLeft - 1), 1000);
+                    return;
+                }
+
+                let errMsg = "Kamera tidak dapat diakses!";
+                if (err.name === "NotAllowedError" || err.name === "PermissionDeniedError") errMsg = "Izin kamera ditolak oleh Browser/HP Anda!";
+                if (err.name === "NotFoundError") errMsg = "Kamera tidak ditemukan!";
+                if (err.name === "NotReadableError" || err.name === "TrackStartError") errMsg = "Kamera macet (Tahan oleh OS). Coba restart peramban/browser.";
+                
+                showToast("Error", errMsg, "error"); 
+                cancelSelfie(); 
             });
-        }, 800); // Penundaan penyembuhan hardware
-    }
-
-    // THE BULLETPROOF FALLBACK: Jika WebRTC mati, gunakan aplikasi kamera bawaan HP!
-    function fallbackToNativeCamera(instructionEl) {
-        instructionEl.innerText = "Membuka Kamera Bawaan HP...";
-        instructionEl.style.color = "#FBBF24";
-        setTimeout(() => {
-            document.getElementById('native-camera-fallback').click();
-            // Sembunyikan modal karena kita pindah ke aplikasi kamera asli HP
-            cancelSelfie();
-        }, 500);
-    }
-
-    function handleNativeCamera(input) {
-        if (!input.files || input.files.length === 0) return;
+        }
         
-        isProcessingAbsen = true;
-        showLoading(true);
-        
-        const file = input.files[0]; 
-        const reader = new FileReader(); 
-        reader.onload = function(e) { 
-            const img = new Image();
-            img.onload = function() {
-                const canvas = document.createElement('canvas'); 
-                const MAX_WIDTH = 480; const MAX_HEIGHT = 640; 
-                let width = img.width; let height = img.height;
-                
-                // Menjaga rasio
-                if (width > height) { if (width > MAX_WIDTH) { height *= MAX_WIDTH / width; width = MAX_WIDTH; } } 
-                else { if (height > MAX_HEIGHT) { width *= MAX_HEIGHT / height; height = MAX_HEIGHT; } }
-                
-                canvas.width = width; canvas.height = height; 
-                const ctx = canvas.getContext('2d'); 
-                ctx.drawImage(img, 0, 0, width, height);
-                
-                const compressedBase64 = canvas.toDataURL('image/jpeg', 0.6); 
-                sendScanData(pendingAbsenId, pendingAbsenType, compressedBase64);
-            }; 
-            img.src = e.target.result;
-        }; 
-        reader.readAsDataURL(file); 
-        input.value = ""; // Reset input
+        // Mulai eksekusi dengan jeda awal
+        setTimeout(() => attemptCamera(3), 500); 
     }
 
     function forceCapture() { if(isProcessingAbsen) return; if(trackerTask) trackerTask.stop(); clearTimeout(fallbackTimer); takeSelfieAndSend(); }
@@ -1272,33 +1222,12 @@
         canvas.width = video.videoWidth; canvas.height = video.videoHeight; const ctx = canvas.getContext('2d');
         ctx.translate(canvas.width, 0); ctx.scale(-1, 1); ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
         const compressedSelfieBase64 = canvas.toDataURL('image/jpeg', 0.6); 
-        
         stopSelfieCamera(); document.getElementById('selfie-modal').style.display = 'none';
         sendScanData(pendingAbsenId, pendingAbsenType, compressedSelfieBase64);
     }
 
     function stopSelfieCamera() { if (trackerTask) { trackerTask.stop(); trackerTask = null; } if (selfieStream) { selfieStream.getTracks().forEach(track => track.stop()); selfieStream = null; } }
     function cancelSelfie() { isProcessingAbsen = false; stopSelfieCamera(); clearTimeout(fallbackTimer); document.getElementById('selfie-modal').style.display = 'none'; navigateTo('scan'); }
-
-    async function sendScanData(id, statusType, fotoBase64) {
-        showLoading(true);
-        try {
-            let locString = 'Tanpa GPS'; if (userLocation) { locString = `Lat: ${userLocation.lat.toFixed(5)}, Lng: ${userLocation.lng.toFixed(5)}`; }
-            const payload = { action: 'scan', data: { id: id, lokasi: locString, status: statusType, foto: fotoBase64 } };
-            const res = await fetch(SCRIPT_URL, { method: 'POST', body: JSON.stringify(payload) }); const result = await res.json();
-            
-            if(result.status === 'Sukses') {
-                document.getElementById('res-msg').innerText = `${result.nama} - ${statusType}`; document.getElementById('result-modal').style.display = 'flex';
-                localStorage.removeItem('eJakaData'); await loadData(); 
-            } else { showToast("Gagal", result.message, "error"); navigateTo('scan'); }
-        } catch(e) { showToast("Error", "Gagal koneksi ke server", "error"); navigateTo('scan'); } 
-        finally { 
-            showLoading(false); 
-            isProcessingAbsen = false; 
-            document.getElementById('manual-capture-btn').style.opacity = '1';
-            document.getElementById('manual-capture-btn').style.pointerEvents = 'auto';
-        }
-    }
 
     // === TAMPILKAN QR INDIVIDU ===
     function showQR(id, name) { document.getElementById('qr-image').src = `https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${id}`; document.getElementById('qr-name').innerText = name || ''; document.getElementById('qr-modal').style.display = 'flex'; }
