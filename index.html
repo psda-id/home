@@ -100,6 +100,7 @@
         .hero-slide.active .hero-badge { opacity: 1; transform: translateY(0); transition-delay: 0.1s; }
         .hero-slide.active .hero-name { opacity: 1; transform: translateY(0); transition-delay: 0.2s; }
         .hero-slide.active .hero-role { opacity: 1; transform: translateY(0); transition-delay: 0.3s; }
+        
         .hero-image-wrapper { width: 300px; height: 100%; position: absolute; right: 20px; bottom: 0; display: flex; align-items: flex-end; justify-content: center; z-index: 1; }
         .hero-img-3d { height: 130%; width: auto; object-fit: contain; filter: drop-shadow(-10px 10px 20px rgba(0,0,0,0.3)); transform: translateY(50%) scale(0.9); transition: all 0.8s cubic-bezier(0.34, 1.56, 0.64, 1); opacity: 0; }
         .hero-slide.active .hero-img-3d { transform: translateY(10%) scale(1); opacity: 1; transition-delay: 0.2s; }
@@ -1085,30 +1086,76 @@
         document.getElementById('selfie-scan-line').style.display = 'none';
         
         const instruction = document.getElementById('selfie-instruction'); const boxUi = document.getElementById('scanner-box-ui');
-        instruction.innerText = "Mengaktifkan Kamera Wajah..."; instruction.style.color = "white"; boxUi.style.borderColor = "#64748B"; 
+        instruction.innerText = "Membuka Kamera Wajah..."; instruction.style.color = "white"; boxUi.style.borderColor = "#64748B"; 
         faceDetectCounter = 0;
         const video = document.getElementById('selfie-video');
         
+        if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+            showToast("Error", "Browser Anda tidak mendukung fitur kamera.", "error");
+            cancelSelfie();
+            return;
+        }
+        
         navigator.mediaDevices.getUserMedia({ video: { facingMode: 'user' }, audio: false })
         .then(stream => {
-            selfieStream = stream; video.srcObject = stream; video.play();
-            setTimeout(() => {
-                instruction.innerText = "Arahkan wajah Anda ke dalam bingkai"; document.getElementById('selfie-scan-line').style.display = 'block'; 
-                const tracker = new tracking.ObjectTracker('face'); tracker.setInitialScale(4); tracker.setStepSize(2); tracker.setEdgesDensity(0.1);
-                trackerTask = tracking.track('#selfie-video', tracker);
-                tracker.on('track', function(event) {
-                    if (event.data.length === 0) {
-                        instruction.innerText = "Wajah tidak terdeteksi. Lihat ke kamera!"; instruction.style.color = "#F87171"; boxUi.style.borderColor = "#EF4444"; boxUi.style.boxShadow = "0 0 40px rgba(239, 68, 68, 0.4), inset 0 0 20px rgba(0,0,0,0.5)"; faceDetectCounter = 0;
-                    } else {
-                        faceDetectCounter++; instruction.innerText = "Tahan Posisi... (" + faceDetectCounter + "/15)"; instruction.style.color = "#4ADE80"; boxUi.style.borderColor = "#4ADE80"; boxUi.style.boxShadow = "0 0 40px rgba(74, 222, 128, 0.6), inset 0 0 20px rgba(0,0,0,0.5)";
-                        if (faceDetectCounter >= 15) { trackerTask.stop(); clearTimeout(fallbackTimer); takeSelfieAndSend(); }
+            selfieStream = stream; 
+            video.srcObject = stream; 
+            
+            video.onloadedmetadata = () => {
+                video.play().then(() => {
+                    instruction.innerText = "Arahkan wajah Anda ke dalam oval"; 
+                    document.getElementById('selfie-scan-line').style.display = 'block'; 
+                    
+                    try {
+                        const tracker = new tracking.ObjectTracker('face'); 
+                        tracker.setInitialScale(4); 
+                        tracker.setStepSize(2); 
+                        tracker.setEdgesDensity(0.1);
+                        trackerTask = tracking.track('#selfie-video', tracker);
+                        
+                        tracker.on('track', function(event) {
+                            if (event.data.length === 0) {
+                                instruction.innerText = "Wajah tidak terdeteksi. Lihat ke kamera!"; 
+                                instruction.style.color = "#F87171"; boxUi.style.borderColor = "#EF4444"; boxUi.style.boxShadow = "0 0 40px rgba(239, 68, 68, 0.4), inset 0 0 20px rgba(0,0,0,0.5)"; 
+                                faceDetectCounter = 0;
+                            } else {
+                                faceDetectCounter++; 
+                                instruction.innerText = "Tahan Posisi... (" + faceDetectCounter + "/10)"; 
+                                instruction.style.color = "#4ADE80"; boxUi.style.borderColor = "#4ADE80"; boxUi.style.boxShadow = "0 0 40px rgba(74, 222, 128, 0.6), inset 0 0 20px rgba(0,0,0,0.5)";
+                                if (faceDetectCounter >= 10) { 
+                                    if(trackerTask) trackerTask.stop(); 
+                                    clearTimeout(fallbackTimer); 
+                                    takeSelfieAndSend(); 
+                                }
+                            }
+                        });
+                    } catch (e) {
+                        console.error("AI Face Tracker Error:", e);
+                        document.getElementById('manual-capture-btn').style.display = 'block'; 
+                        instruction.innerText = "Posisikan wajah lalu klik Ambil Foto.";
                     }
+                }).catch(err => {
+                    console.error("Gagal memutar video:", err);
                 });
-                fallbackTimer = setTimeout(() => {
-                    if(document.getElementById('selfie-modal').style.display === 'flex') { document.getElementById('manual-capture-btn').style.display = 'block'; instruction.innerText = "Deteksi sulit? Klik tombol di bawah."; instruction.style.color = "#FBBF24"; }
-                }, 5000);
-            }, 1000);
-        }).catch(err => { showToast("Error", "Kamera tidak dapat diakses!", "error"); cancelSelfie(); });
+            };
+
+            fallbackTimer = setTimeout(() => {
+                if(document.getElementById('selfie-modal').style.display === 'flex') { 
+                    document.getElementById('manual-capture-btn').style.display = 'block'; 
+                    instruction.innerText = "Deteksi sulit? Klik tombol di bawah."; 
+                    instruction.style.color = "#FBBF24"; 
+                }
+            }, 5000);
+            
+        }).catch(err => { 
+            console.error("Kamera Error Detail:", err);
+            let errMsg = "Kamera tidak dapat diakses!";
+            if (err.name === "NotAllowedError" || err.name === "PermissionDeniedError") errMsg = "Izin kamera ditolak oleh Browser/HP Anda!";
+            if (err.name === "NotFoundError") errMsg = "Kamera depan tidak ditemukan!";
+            
+            showToast("Error", errMsg, "error"); 
+            cancelSelfie(); 
+        });
     }
 
     function forceCapture() { if(isProcessingAbsen) return; if(trackerTask) trackerTask.stop(); clearTimeout(fallbackTimer); takeSelfieAndSend(); }
@@ -1479,7 +1526,7 @@
         const oldInstansi = { ...state.instansi };
         state.instansi = { ...state.instansi, nama: document.getElementById('ins-nama').value, alamat: document.getElementById('ins-alamat').value, kepala: document.getElementById('ins-kepala').value, email: document.getElementById('ins-email').value, pengumuman: document.getElementById('ins-pengumuman').value, lat: document.getElementById('ins-lat').value.replace(/,/g, '.'), lng: document.getElementById('ins-lng').value.replace(/,/g, '.'), radius: document.getElementById('ins-radius').value };
         const success = await saveData(); 
-        if(success) { renderAdmin(document.getElementById('main-content')); switchTab('instansi'); } 
+        if(success) { renderAdmin(document.getElementById('main-content')); switchTab('instansi'); showToast("Tersimpan", "Pengaturan Instansi Disimpan!", "success"); } 
         else { state.instansi = oldInstansi; }
     }
 
