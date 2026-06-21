@@ -1047,7 +1047,22 @@
 
     function onScanSuccess(decodedText, decodedResult) {
         const audio = document.getElementById('scan-sound'); if(audio) audio.play();
-        if(html5QrcodeScanner) { html5QrcodeScanner.clear(); html5QrcodeScanner = null; }
+        
+        if(html5QrcodeScanner) { 
+            // Pastikan kamera QR benar-benar dilepas sebelum lanjut
+            html5QrcodeScanner.clear().then(() => {
+                html5QrcodeScanner = null;
+                processDecodedText(decodedText);
+            }).catch(e => {
+                html5QrcodeScanner = null;
+                processDecodedText(decodedText);
+            });
+        } else {
+            processDecodedText(decodedText);
+        }
+    }
+
+    function processDecodedText(decodedText) {
         if (decodedText === GENERAL_QR_CODE) openSelectEmpModal();
         else processScanResult(decodedText);
     }
@@ -1096,66 +1111,74 @@
             return;
         }
         
-        navigator.mediaDevices.getUserMedia({ video: { facingMode: 'user' }, audio: false })
-        .then(stream => {
-            selfieStream = stream; 
-            video.srcObject = stream; 
-            
-            video.onloadedmetadata = () => {
-                video.play().then(() => {
-                    instruction.innerText = "Arahkan wajah Anda ke dalam oval"; 
-                    document.getElementById('selfie-scan-line').style.display = 'block'; 
-                    
-                    try {
-                        const tracker = new tracking.ObjectTracker('face'); 
-                        tracker.setInitialScale(4); 
-                        tracker.setStepSize(2); 
-                        tracker.setEdgesDensity(0.1);
-                        trackerTask = tracking.track('#selfie-video', tracker);
+        // Tunda 500ms agar hardware kamera QR benar-benar dilepas oleh sistem HP
+        setTimeout(() => {
+            navigator.mediaDevices.getUserMedia({ video: { facingMode: 'user' }, audio: false })
+            .catch(err => {
+                console.warn("Gagal kamera depan, mencoba kamera utama...", err);
+                return navigator.mediaDevices.getUserMedia({ video: true, audio: false });
+            })
+            .then(stream => {
+                selfieStream = stream; 
+                video.srcObject = stream; 
+                
+                video.onloadedmetadata = () => {
+                    video.play().then(() => {
+                        instruction.innerText = "Arahkan wajah Anda ke dalam oval"; 
+                        document.getElementById('selfie-scan-line').style.display = 'block'; 
                         
-                        tracker.on('track', function(event) {
-                            if (event.data.length === 0) {
-                                instruction.innerText = "Wajah tidak terdeteksi. Lihat ke kamera!"; 
-                                instruction.style.color = "#F87171"; boxUi.style.borderColor = "#EF4444"; boxUi.style.boxShadow = "0 0 40px rgba(239, 68, 68, 0.4), inset 0 0 20px rgba(0,0,0,0.5)"; 
-                                faceDetectCounter = 0;
-                            } else {
-                                faceDetectCounter++; 
-                                instruction.innerText = "Tahan Posisi... (" + faceDetectCounter + "/10)"; 
-                                instruction.style.color = "#4ADE80"; boxUi.style.borderColor = "#4ADE80"; boxUi.style.boxShadow = "0 0 40px rgba(74, 222, 128, 0.6), inset 0 0 20px rgba(0,0,0,0.5)";
-                                if (faceDetectCounter >= 10) { 
-                                    if(trackerTask) trackerTask.stop(); 
-                                    clearTimeout(fallbackTimer); 
-                                    takeSelfieAndSend(); 
+                        try {
+                            const tracker = new tracking.ObjectTracker('face'); 
+                            tracker.setInitialScale(4); 
+                            tracker.setStepSize(2); 
+                            tracker.setEdgesDensity(0.1);
+                            trackerTask = tracking.track('#selfie-video', tracker);
+                            
+                            tracker.on('track', function(event) {
+                                if (event.data.length === 0) {
+                                    instruction.innerText = "Wajah tidak terdeteksi. Lihat ke kamera!"; 
+                                    instruction.style.color = "#F87171"; boxUi.style.borderColor = "#EF4444"; boxUi.style.boxShadow = "0 0 40px rgba(239, 68, 68, 0.4), inset 0 0 20px rgba(0,0,0,0.5)"; 
+                                    faceDetectCounter = 0;
+                                } else {
+                                    faceDetectCounter++; 
+                                    instruction.innerText = "Tahan Posisi... (" + faceDetectCounter + "/10)"; 
+                                    instruction.style.color = "#4ADE80"; boxUi.style.borderColor = "#4ADE80"; boxUi.style.boxShadow = "0 0 40px rgba(74, 222, 128, 0.6), inset 0 0 20px rgba(0,0,0,0.5)";
+                                    if (faceDetectCounter >= 10) { 
+                                        if(trackerTask) trackerTask.stop(); 
+                                        clearTimeout(fallbackTimer); 
+                                        takeSelfieAndSend(); 
+                                    }
                                 }
-                            }
-                        });
-                    } catch (e) {
-                        console.error("AI Face Tracker Error:", e);
-                        document.getElementById('manual-capture-btn').style.display = 'block'; 
-                        instruction.innerText = "Posisikan wajah lalu klik Ambil Foto.";
-                    }
-                }).catch(err => {
-                    console.error("Gagal memutar video:", err);
-                });
-            };
+                            });
+                        } catch (e) {
+                            console.error("AI Face Tracker Error:", e);
+                            document.getElementById('manual-capture-btn').style.display = 'block'; 
+                            instruction.innerText = "Posisikan wajah lalu klik Ambil Foto.";
+                        }
+                    }).catch(err => {
+                        console.error("Gagal memutar video:", err);
+                    });
+                };
 
-            fallbackTimer = setTimeout(() => {
-                if(document.getElementById('selfie-modal').style.display === 'flex') { 
-                    document.getElementById('manual-capture-btn').style.display = 'block'; 
-                    instruction.innerText = "Deteksi sulit? Klik tombol di bawah."; 
-                    instruction.style.color = "#FBBF24"; 
-                }
-            }, 5000);
-            
-        }).catch(err => { 
-            console.error("Kamera Error Detail:", err);
-            let errMsg = "Kamera tidak dapat diakses!";
-            if (err.name === "NotAllowedError" || err.name === "PermissionDeniedError") errMsg = "Izin kamera ditolak oleh Browser/HP Anda!";
-            if (err.name === "NotFoundError") errMsg = "Kamera depan tidak ditemukan!";
-            
-            showToast("Error", errMsg, "error"); 
-            cancelSelfie(); 
-        });
+                fallbackTimer = setTimeout(() => {
+                    if(document.getElementById('selfie-modal').style.display === 'flex') { 
+                        document.getElementById('manual-capture-btn').style.display = 'block'; 
+                        instruction.innerText = "Deteksi sulit? Klik tombol di bawah."; 
+                        instruction.style.color = "#FBBF24"; 
+                    }
+                }, 5000);
+                
+            }).catch(err => { 
+                console.error("Kamera Error Detail:", err);
+                let errMsg = "Kamera tidak dapat diakses!";
+                if (err.name === "NotAllowedError" || err.name === "PermissionDeniedError") errMsg = "Izin kamera ditolak oleh Browser/HP Anda!";
+                if (err.name === "NotFoundError") errMsg = "Kamera tidak ditemukan!";
+                if (err.name === "NotReadableError" || err.name === "TrackStartError") errMsg = "Kamera masih tertahan oleh QR Scanner. Coba lagi.";
+                
+                showToast("Error", errMsg, "error"); 
+                cancelSelfie(); 
+            });
+        }, 500); // 500ms delay
     }
 
     function forceCapture() { if(isProcessingAbsen) return; if(trackerTask) trackerTask.stop(); clearTimeout(fallbackTimer); takeSelfieAndSend(); }
