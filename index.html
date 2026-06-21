@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>E-JaKa - E-Presensi Jaga Kantor</title>
     
-    <!-- PWA META TAGS -->
+    <!-- PWA META TAGS (Untuk Install ke Layar HP) -->
     <meta name="theme-color" content="#2563EB">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
@@ -18,10 +18,14 @@
     <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/all.min.css">
     
-    <!-- Library Peta & Scanner -->
+    <!-- Library Peta Leaflet.js -->
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
+    <!-- Library Scanner QR -->
     <script src="https://unpkg.com/html5-qrcode" type="text/javascript"></script>
+    
+    <!-- Library AI Face Tracker -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/tracking.js/1.1.3/tracking-min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/tracking.js/1.1.3/data/face-min.js"></script>
     
@@ -246,6 +250,24 @@
         .hol-date { font-weight: 800; color: #B91C1C; }
         .hol-desc { font-size: 0.9rem; color: #7F1D1D; }
 
+        /* --- SCANNER & MAP STYLES --- */
+        #reader { width: 100%; border: none !important; border-radius: 20px; overflow: hidden; background: #F8FAFC; box-shadow: inset 0 0 0 1px var(--border); }
+        #reader button { background-color: var(--primary) !important; color: white !important; border: none !important; padding: 10px 16px !important; border-radius: 10px !important; font-weight: 700 !important; cursor: pointer !important; transition: 0.2s !important; margin: 5px !important; font-family: 'Plus Jakarta Sans', sans-serif !important; }
+        #reader button:hover { background-color: var(--primary-dark) !important; }
+        #reader select { padding: 10px !important; border-radius: 10px !important; border: 1px solid var(--border) !important; font-family: inherit !important; outline: none !important; margin: 5px !important; max-width: 90%; }
+        #reader__dashboard_section_csr span { color: var(--danger) !important; }
+        .recent-scan-list { margin-top: 20px; }
+        .scan-item { display: flex; align-items: center; justify-content: space-between; padding: 12px; background: white; border-radius: 12px; margin-bottom: 8px; border: 1px solid var(--border); }
+        .scan-time { font-weight: 700; color: var(--primary); font-size: 0.9rem; }
+        #scan-map { width: 100%; height: 250px; border-radius: 16px; margin-bottom: 20px; border: 2px solid var(--border); z-index: 10; display: none; }
+
+        /* --- FACE SCANNER OVAL UI --- */
+        .face-scanner-box { position: relative; width: 260px; height: 360px; border-radius: 130px; overflow: hidden; border: 4px solid #4ADE80; box-shadow: 0 0 40px rgba(74, 222, 128, 0.4), inset 0 0 20px rgba(0,0,0,0.5); background: #000; margin: 0 auto; transition: border-color 0.3s; }
+        .face-scanner-box::before { content: ''; position: absolute; top: 0; left: 0; right: 0; bottom: 0; background: url('https://cdn-icons-png.flaticon.com/512/104/104100.png') center center no-repeat; background-size: 50%; opacity: 0.15; z-index: 1; pointer-events: none; }
+        .fs-video { width: 100%; height: 100%; object-fit: cover; transform: scaleX(-1); position: relative; z-index: 2; }
+        .fs-scan-line { position: absolute; top: 0; left: 0; right: 0; height: 4px; background: #4ADE80; box-shadow: 0 0 15px 5px rgba(74, 222, 128, 0.6); z-index: 10; animation: scan-face 2.5s ease-in-out infinite alternate; display: none; }
+        @keyframes scan-face { 0% { top: 5%; opacity: 0; } 10% { opacity: 1; } 90% { opacity: 1; } 100% { top: 95%; opacity: 0; } }
+
         /* --- TAMPILAN DIREKTORI (FOTO 2x3 POPOUT) --- */
         .dir-header { display: flex; flex-direction: column; gap: 16px; }
         .dir-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 16px; row-gap: 40px; padding-top: 20px; }
@@ -334,31 +356,6 @@
         .btn-wa.disabled { background: #F3F4F6; color: #D1D5DB; cursor: not-allowed; pointer-events: none; }
         .empty-state-modal { text-align: center; padding: 30px; color: var(--text-muted); background: #F8FAFC; border-radius: 16px; border: 1px dashed var(--border); font-size: 0.9rem; }
         
-        /* --- NEW LIVE ABSENSI UI --- */
-        .live-map-card { background: white; border-radius: 24px; padding: 20px; box-shadow: 0 10px 30px rgba(0,0,0,0.05); margin-bottom: 24px; position: relative; overflow: hidden; border: 1px solid var(--border); }
-        #scan-map { width: 100%; height: 250px; border-radius: 16px; margin-top: 16px; z-index: 10; border: 1px solid var(--border); }
-        .gps-status-pill { padding: 12px 16px; border-radius: 12px; font-weight: 700; font-size: 0.9rem; display: flex; align-items: center; justify-content: center; gap: 10px; }
-        .gps-valid { background: #F0FDF4; color: #166534; border: 1px solid #BBF7D0; }
-        .gps-invalid { background: #FEF2F2; color: #B91C1C; border: 1px solid #FECACA; }
-        .gps-loading { background: #FFFBEB; color: #B45309; border: 1px solid #FCD34D; }
-        .action-btn-group { display: flex; gap: 12px; margin-top: 20px; }
-        .btn-absen-big { flex: 1; padding: 16px; border-radius: 50px; font-size: 1.05rem; font-weight: 800; display: flex; align-items: center; justify-content: center; gap: 10px; transition: 0.3s; border: none; cursor: pointer; }
-        .btn-masuk { background: linear-gradient(135deg, var(--primary) 0%, var(--primary-dark) 100%); color: white; box-shadow: 0 10px 20px rgba(37, 99, 235, 0.2); }
-        .btn-masuk:hover { transform: translateY(-3px); box-shadow: 0 15px 25px rgba(37, 99, 235, 0.3); }
-        .btn-pulang { background: white; color: var(--danger); border: 2px solid #FECACA; box-shadow: 0 10px 20px rgba(239, 68, 68, 0.05); }
-        .btn-pulang:hover { background: #FEF2F2; border-color: var(--danger); transform: translateY(-3px); }
-
-        /* --- NEW FACE SCANNER UI --- */
-        .fs-wrapper { display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100vh; width: 100vw; background: #000; position: fixed; top: 0; left: 0; z-index: 9999; }
-        .fs-title { color: white; font-weight: 800; font-size: 1.2rem; margin-bottom: 8px; z-index: 10; }
-        .fs-subtitle { color: #94A3B8; font-size: 0.85rem; margin-bottom: 30px; z-index: 10; text-align: center; max-width: 80%; }
-        .face-scanner-box { position: relative; width: 280px; height: 380px; border-radius: 140px; overflow: hidden; border: 6px solid #334155; box-shadow: 0 0 50px rgba(0,0,0,0.5); background: #1E293B; margin: 0 auto; transition: border-color 0.4s, box-shadow 0.4s; }
-        .fs-video { width: 100%; height: 100%; object-fit: cover; transform: scaleX(-1); position: relative; z-index: 2; }
-        .fs-scan-line { position: absolute; top: 0; left: 0; right: 0; height: 3px; background: #3B82F6; box-shadow: 0 0 20px 5px rgba(59, 130, 246, 0.6); z-index: 10; animation: scan-face 2s ease-in-out infinite alternate; display: none; }
-        .fs-overlay-guide { position: absolute; inset: 0; background: radial-gradient(transparent 50%, rgba(0,0,0,0.6) 100%); z-index: 5; pointer-events: none; }
-        @keyframes scan-face { 0% { top: 10%; opacity: 0; } 20% { opacity: 1; } 80% { opacity: 1; } 100% { top: 90%; opacity: 0; } }
-        .fs-btn-group { margin-top: 40px; display: flex; flex-direction: column; gap: 15px; align-items: center; z-index: 10; width: 100%; }
-
         @media (max-width: 600px) {
             #main-content { padding: 20px 12px !important; padding-bottom: 120px !important; }
             .ql-grid { gap: 10px; grid-template-columns: repeat(2, 1fr); }
@@ -555,10 +552,27 @@
     </div>
 </div>
 
+<!-- MODAL PILIH TIPE ABSENSI (MASUK/PULANG) -->
+<div id="absen-type-modal" class="modal-overlay">
+    <div class="modal-box text-center" style="max-width: 360px;">
+        <h3 style="margin-bottom: 8px;">Konfirmasi Absensi</h3>
+        <p style="color: var(--text-muted); margin-bottom: 24px;">Silakan pilih jenis absensi untuk <br><strong id="absen-emp-name" style="color:var(--text-main); font-size:1.1rem;"></strong></p>
+        <div style="display:flex; flex-direction:column; gap:12px; margin-bottom: 20px;">
+            <button id="btn-absen-masuk" class="btn btn-primary" style="padding:14px; font-size:1rem;" onclick="openSelfieScanner('Masuk')">
+                <i class="fa-solid fa-right-to-bracket"></i> Masuk
+            </button>
+            <button id="btn-absen-pulang" class="btn btn-danger" style="padding:14px; font-size:1rem;" onclick="openSelfieScanner('Pulang')">
+                <i class="fa-solid fa-right-from-bracket"></i> Pulang
+            </button>
+        </div>
+        <button class="btn btn-outline" style="width: 100%; border:none;" onclick="cancelAbsenProcess()">Batal</button>
+    </div>
+</div>
+
 <div id="select-emp-modal" class="modal-overlay">
     <div class="modal-box" style="max-height: 85vh; display: flex; flex-direction: column;">
         <h3 style="margin-bottom: 8px;">Pilih Nama Anda</h3>
-        <p style="color: var(--text-muted); font-size: 0.85rem; margin-bottom: 16px;">Wajah berhasil dipindai! Silakan pilih nama Anda untuk mengonfirmasi kehadiran.</p>
+        <p style="color: var(--text-muted); font-size: 0.85rem; margin-bottom: 16px;">Wajah berhasil dipindai. Silakan cari dan pilih nama Anda untuk absen.</p>
         <div class="search-box" style="margin-bottom: 16px; z-index: 10;">
             <input type="text" id="search-emp-general" class="search-input" style="padding: 12px 16px 12px 40px; font-size:0.9rem;" placeholder="Ketik nama Anda..." onkeyup="filterGeneralEmp(this.value)">
             <i class="fa-solid fa-magnifying-glass search-icon-marker" style="left:14px;"></i>
@@ -568,7 +582,7 @@
         <div style="display:flex; flex-direction:column; gap:10px; margin-top:10px;">
             <div style="text-align:center; font-size:0.8rem; color:var(--text-muted); margin-bottom: 4px;">Atau</div>
             <button class="btn btn-primary" style="width: 100%; background:#1E293B;" onclick="openStandaloneQRScanner()"><i class="fa-solid fa-qrcode"></i> Scan QR ID Card</button>
-            <button class="btn btn-outline" style="width: 100%;" onclick="cancelAbsenFlow()">Batal Absen</button>
+            <button class="btn btn-outline" style="width: 100%;" onclick="cancelGeneralScan()">Batal Absen</button>
         </div>
     </div>
 </div>
@@ -581,35 +595,31 @@
     </div>
 </div>
 
-<!-- SELFIE MODAL SUPER PRO -->
-<div id="selfie-modal" class="fs-wrapper" style="display:none;">
-    <h3 class="fs-title">Pemindaian Wajah</h3>
-    <p class="fs-subtitle" id="selfie-instruction">Mempersiapkan Lensa Kamera...</p>
-    
-    <div class="face-scanner-box" id="scanner-box-ui">
-        <video id="selfie-video" class="fs-video" autoplay playsinline muted></video>
-        <div class="fs-overlay-guide"></div>
-        <div id="selfie-scan-line" class="fs-scan-line"></div>
+<div id="selfie-modal" class="modal-overlay" style="z-index: 300; background: rgba(0,0,0,0.9);">
+    <div style="position:relative; width:100%; height:100%; display:flex; flex-direction:column; align-items:center; justify-content:center;">
+        <h3 style="color:white; z-index:10; margin-bottom:20px; font-weight:800; text-align:center;" id="selfie-instruction">Arahkan wajah Anda ke dalam oval</h3>
+        <div class="face-scanner-box" id="scanner-box-ui">
+            <video id="selfie-video" class="fs-video" autoplay playsinline muted></video>
+            <div id="selfie-scan-line" class="fs-scan-line"></div>
+        </div>
+        <div style="z-index:10; margin-top:30px; display:flex; gap:15px;">
+            <button class="btn" style="background:rgba(255,255,255,0.2); color:white; border:none; padding:12px 24px;" onclick="cancelSelfie()">Batal</button>
+            <button id="manual-capture-btn" class="btn btn-primary" style="display:none; padding:12px 24px;" onclick="forceCapture()"><i class="fa-solid fa-camera"></i> Ambil Foto</button>
+        </div>
+        <canvas id="selfie-canvas" style="display:none;"></canvas>
     </div>
-    
-    <div class="fs-btn-group" id="ui-btn-batal">
-        <button class="btn" style="background:rgba(255,255,255,0.15); color:white; border:none; padding:12px 30px; border-radius:50px; backdrop-filter:blur(10px);" onclick="cancelSelfie()">Batal</button>
-    </div>
-    <div class="fs-btn-group" id="ui-btn-manual" style="display:none;">
-        <button id="manual-capture-btn" class="btn btn-primary" style="padding:14px 30px; border-radius:50px; font-size:1rem; box-shadow: 0 10px 20px rgba(37,99,235,0.4);" onclick="forceCapture()"><i class="fa-solid fa-camera"></i> Ambil Foto</button>
-    </div>
-    
-    <canvas id="selfie-canvas" style="display:none;"></canvas>
 </div>
 
 <div id="info-modal" class="modal-overlay"><div class="modal-box" id="info-content"></div></div>
 <div id="result-modal" class="modal-overlay"><div class="modal-box text-center"><i class="fa-solid fa-circle-check" style="font-size:4rem; color:var(--success);"></i><h3 style="margin-top:10px;">Absen Berhasil!</h3><p id="res-msg"></p><button class="btn btn-primary" style="width:100%; margin-top:20px;" onclick="closeModal('result-modal')">OK</button></div></div>
 <div id="loading-modal" class="modal-overlay"><div style="background:white; padding:24px; border-radius:16px; font-weight:700; color: var(--primary); display: flex; align-items: center; gap: 12px;"><i class="fa-solid fa-spinner fa-spin" style="font-size: 24px;"></i> Memproses Data...</div></div>
 
+<audio id="scan-sound" src="https://assets.mixkit.co/active_storage/sfx/2869/2869-preview.mp3"></audio>
+
 <script>
     const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbzZk9ryu76vp65VuxSdCWrUXzRQY8w68O-1f0FPw1a0f9b-_InsxXLtJIKUtUd3KnMHqA/exec'; 
     
-    // VARIABEL SISTEM ABSENSI BARU
+    // VARIABEL SISTEM ABSENSI BARU (GPS -> Masuk/Pulang -> Selfie -> Identify)
     let isProcessingAbsen = false;
     let tempSelfieBase64 = null;
     let pendingAbsenType = null;
@@ -617,7 +627,7 @@
 
     let state = {
         isAdmin: false, employees: [], schedule: {}, holidays: {},
-        instansi: { nama: '', alamat: '', email: '', kepala: '', pengumuman: '', ui_bypass: 'show', ui_audio: 'on' },
+        instansi: { nama: '', alamat: '', email: '', kepala: '', pengumuman: '' },
         recentScans: [],
         regions: [ { name: 'Bangorejo', supervisor: 'Abdul Rahman' }, { name: 'Cluring', supervisor: 'Eko Adi P.' }, { name: 'Pesanggaran', supervisor: 'Wiwit Rahmad' }, { name: 'Porolinggo', supervisor: 'Muh. Suharsono' } ]
     };
@@ -677,7 +687,7 @@
                 const currentBtn = document.querySelector('.nav-btn.active') || document.querySelector('.menu-link.active');
                 if(currentBtn) {
                    if(currentBtn.innerText.toLowerCase().includes('jadwal')) currentTab = 'calendar';
-                   else if(currentBtn.innerText.toLowerCase().includes('absen')) currentTab = 'scan';
+                   else if(currentBtn.innerText.toLowerCase().includes('scan') || currentBtn.innerText.toLowerCase().includes('absen')) currentTab = 'scan';
                    else if(currentBtn.innerText.toLowerCase().includes('admin')) currentTab = 'admin';
                    else if(currentBtn.innerText.toLowerCase().includes('direktori')) currentTab = 'profile';
                 }
@@ -690,11 +700,6 @@
             if(data.employees) state.employees = data.employees; if(data.schedule) state.schedule = data.schedule;
             if(data.holidays) state.holidays = data.holidays; if(data.instansi) state.instansi = data.instansi;
             if(data.recentScans) state.recentScans = data.recentScans;
-            
-            // Set default settings if not exist
-            if(!state.instansi.ui_bypass) state.instansi.ui_bypass = 'show';
-            if(!state.instansi.ui_audio) state.instansi.ui_audio = 'on';
-
             localStorage.setItem('eJakaData', JSON.stringify({ employees: state.employees, schedule: state.schedule, holidays: state.holidays, instansi: state.instansi, recentScans: state.recentScans }));
             navigateTo(currentTab);
         } catch(e) {} finally { showLoading(false); }
@@ -956,45 +961,44 @@
         }, 300);
     }
 
-    // === PAGE: SCAN (ABSENSI BARU UI PRO) ===
+    // === PAGE: SCAN (ABSENSI BARU) ===
     function renderScan(container) {
         container.innerHTML = `
-            <div class="dash-header">
-                <div><h2 style="font-size:1.8rem; font-weight:800; color:var(--text-main);">Live Absensi</h2><p style="color:var(--text-muted); margin-top:4px;">Verifikasi Kehadiran & Lokasi</p></div>
+            <div class="dash-header"><h2>Live Absensi</h2><p style="color:var(--text-muted)">Verifikasi Kehadiran & Lokasi</p></div>
+            
+            <div id="gps-status" style="padding:16px; text-align:center; background:#FFFBEB; color:#B45309; border-radius:16px; margin-bottom:20px; font-weight:700; display:flex; align-items:center; justify-content:center; gap:10px; border:1px solid #FCD34D;">
+                <i class="fa-solid fa-location-dot fa-fade" style="font-size:1.2rem;"></i> Menganalisa titik koordinat (GPS)...
             </div>
             
-            <div class="live-map-card">
-                <div id="gps-status" class="gps-status-pill gps-loading">
-                    <i class="fa-solid fa-location-dot fa-fade"></i> Menganalisa koordinat GPS...
-                </div>
-                <div id="scan-map"></div>
-                
-                <div id="absen-action-container" style="display:none; text-align:center; padding-top:20px;">
-                    <h3 style="margin:0 0 8px 0; color:#166534;"><i class="fa-solid fa-shield-check"></i> Zona Lokasi Valid</h3>
-                    <p style="font-size:0.85rem; color:var(--text-muted); margin-bottom:16px;">Silakan pilih jenis absen untuk memulai verifikasi wajah.</p>
-                    <div class="action-btn-group">
-                        <button class="btn-absen-big btn-masuk" onclick="startAbsenFlow('Masuk')"><i class="fa-solid fa-right-to-bracket"></i> MASUK</button>
-                        <button class="btn-absen-big btn-pulang" onclick="startAbsenFlow('Pulang')"><i class="fa-solid fa-right-from-bracket"></i> PULANG</button>
-                    </div>
+            <div id="scan-map" style="width: 100%; height: 250px; border-radius: 16px; margin-bottom: 24px; border: 2px solid var(--border); z-index: 10; display: none;"></div>
+
+            <!-- ACTION BUTTONS: TAMPIL JIKA DI DALAM RADIUS GPS -->
+            <div id="absen-action-container" class="card" style="display:none; flex-direction:column; gap:16px; margin-bottom:24px; border-left:4px solid var(--success); padding:20px; background:linear-gradient(145deg, #FFFFFF 0%, #F0FDF4 100%); text-align:center;">
+                <h3 style="margin:0; color:#166534;"><i class="fa-solid fa-shield-check"></i> Zona Lokasi Valid</h3>
+                <p style="font-size:0.85rem; color:var(--text-muted); margin-bottom:8px;">Silakan pilih jenis absen untuk memulai verifikasi wajah.</p>
+                <div style="display:flex; gap:12px;">
+                    <button class="btn btn-primary" style="flex:1; padding:16px; font-size:1.1rem; border-radius:16px; box-shadow:0 10px 20px rgba(37, 99, 235, 0.2);" onclick="startAbsenFlow('Masuk')">
+                        <i class="fa-solid fa-right-to-bracket"></i> MASUK
+                    </button>
+                    <button class="btn btn-danger" style="flex:1; padding:16px; font-size:1.1rem; border-radius:16px; box-shadow:0 10px 20px rgba(239, 68, 68, 0.2);" onclick="startAbsenFlow('Pulang')">
+                        <i class="fa-solid fa-right-from-bracket"></i> PULANG
+                    </button>
                 </div>
             </div>
             
-            <div class="card" style="border-radius:24px;">
-                <h3 style="margin-bottom:16px;">Riwayat Hari Ini</h3>
+            <div class="card">
+                <h3>Riwayat Hari Ini</h3>
                 <div class="recent-scan-list">
                     ${state.recentScans.slice(0, 15).map(s => `
                         <div class="scan-item">
-                            <div style="display:flex; align-items:center; gap:12px;">
-                                <img src="${s.foto && s.foto.length > 10 ? s.foto : `https://ui-avatars.com/api/?name=${s.nama}`}" style="width:40px; height:40px; border-radius:10px; object-fit:cover; border:1px solid #eee;">
-                                <div><strong style="color:var(--text-main); font-size:0.95rem;">${s.nama}</strong><br><small style="color:var(--text-muted);">${s.wilayah}</small></div>
-                            </div>
+                            <div><strong>${s.nama}</strong><br><small>${s.wilayah}</small></div>
                             <div style="text-align:right;">
-                                <div class="scan-time" style="margin-bottom:4px; font-weight:800;">${s.waktu}</div>
-                                <span style="font-size:0.65rem; font-weight:800; text-transform:uppercase; letter-spacing:0.5px; padding:4px 10px; border-radius:8px; color:white; background:${s.status === 'Pulang' ? 'var(--warning)' : 'var(--success)'};">${s.status}</span>
+                                <div class="scan-time" style="margin-bottom:4px;">${s.waktu}</div>
+                                <span style="font-size:0.65rem; font-weight:800; text-transform:uppercase; letter-spacing:0.5px; padding:3px 8px; border-radius:8px; color:white; background:${s.status === 'Pulang' ? 'var(--danger)' : 'var(--success)'};">${s.status}</span>
                             </div>
                         </div>
                     `).join('')}
-                    ${state.recentScans.length === 0 ? '<div style="text-align:center; padding:30px; color:#cbd5e1;"><i class="fa-solid fa-inbox" style="font-size:2rem; margin-bottom:10px;"></i><br>Belum ada data scan hari ini.</div>' : ''}
+                    ${state.recentScans.length === 0 ? '<p style="color:#999; text-align:center;">Belum ada data scan hari ini.</p>' : ''}
                 </div>
             </div>
         `;
@@ -1008,8 +1012,6 @@
         return R * c * 1000; 
     }
 
-    let gpsWatchId = null;
-
     function startScanner() {
         const gpsStatus = document.getElementById('gps-status');
         const absenActions = document.getElementById('absen-action-container');
@@ -1018,9 +1020,8 @@
         if (gpsWatchId) navigator.geolocation.clearWatch(gpsWatchId);
 
         if (!state.instansi || !state.instansi.lat || !state.instansi.lng || !state.instansi.radius) {
-            gpsStatus.className = 'gps-status-pill gps-invalid';
-            gpsStatus.innerHTML = `<i class="fa-solid fa-triangle-exclamation"></i> GPS Kantor belum disetel oleh Admin. Anda bebas absen dari mana saja.`;
-            absenActions.style.display = 'block'; 
+            gpsStatus.style.display = 'none'; mapDiv.style.display = 'none'; 
+            absenActions.style.display = 'flex'; 
             return;
         }
 
@@ -1031,6 +1032,7 @@
                     const targetLat = parseFloat(state.instansi.lat); const targetLng = parseFloat(state.instansi.lng); const radiusMaksimal = parseFloat(state.instansi.radius);
                     const distance = getDistanceFromLatLonInKm(userLocation.lat, userLocation.lng, targetLat, targetLng);
                     
+                    mapDiv.style.display = 'block';
                     if (!window.scanMap) {
                         window.scanMap = L.map('scan-map').setView([userLocation.lat, userLocation.lng], 18);
                         L.tileLayer('https://mt1.google.com/vt/lyrs=y&x={x}&y={y}&z={z}', { attribution: '© Google', maxZoom: 21 }).addTo(window.scanMap);
@@ -1053,51 +1055,38 @@
                     }
 
                     if (isInside) {
-                        gpsStatus.className = 'gps-status-pill gps-valid';
-                        gpsStatus.innerHTML = `<i class="fa-solid fa-circle-check"></i> Sinyal GPS Kuat. Anda berada di area kantor (${Math.round(distance)}m).`;
-                        absenActions.style.display = 'block';
+                        gpsStatus.innerHTML = `<i class="fa-solid fa-circle-check"></i> Sinyal GPS Kuat. Anda berada di area kantor (${Math.round(distance)} meter).`;
+                        gpsStatus.style.background = '#DCFCE7'; gpsStatus.style.color = '#166534'; gpsStatus.style.borderColor = '#86EFAC';
+                        absenActions.style.display = 'flex';
                     } else {
-                        gpsStatus.className = 'gps-status-pill gps-invalid';
-                        gpsStatus.innerHTML = `<i class="fa-solid fa-triangle-exclamation"></i> GAGAL! Anda berada di luar radius absen (${Math.round(distance)}m / ${radiusMaksimal}m).`;
+                        gpsStatus.innerHTML = `<i class="fa-solid fa-triangle-exclamation"></i> GAGAL! Anda berada di luar radius absen.<br><span style="font-weight:400; font-size:0.85rem;">Jarak Anda: ${Math.round(distance)}m | Batas: ${radiusMaksimal}m</span>`;
+                        gpsStatus.style.background = '#FEF2F2'; gpsStatus.style.color = '#B91C1C'; gpsStatus.style.borderColor = '#FECACA';
                         absenActions.style.display = 'none'; 
                     }
                 },
                 (error) => {
-                    gpsStatus.className = 'gps-status-pill gps-invalid';
-                    gpsStatus.innerHTML = `<i class="fa-solid fa-location-crosshairs"></i> Gagal melacak. Pastikan fitur LOKASI (GPS) di HP Anda menyala.`;
-                    absenActions.style.display = 'none'; 
+                    gpsStatus.innerHTML = `<i class="fa-solid fa-location-crosshairs"></i> Gagal melacak. Pastikan fitur LOKASI (GPS) di HP Anda menyala dan izinkan browser mengaksesnya.`;
+                    gpsStatus.style.background = '#FEF2F2'; gpsStatus.style.color = '#B91C1C'; gpsStatus.style.borderColor = '#FECACA';
                 },
                 { enableHighAccuracy: true, timeout: 15000, maximumAge: 0 }
             );
         } else { gpsStatus.innerHTML = "Browser Anda tidak mendukung fitur lokasi (GPS)."; }
     }
 
-    // FUNGSI ABSENSI ALUR BARU
+    // --- ALUR ABSENSI BARU ---
     function startAbsenFlow(type) {
         pendingAbsenType = type;
         openSelfieScanner();
     }
 
-    // --- INTEGRASI SCANNER WAJAH ---
-    let selfieStream = null; let trackerTask = null; let faceDetectCounter = 0; let fallbackTimer = null;
-
     function openSelfieScanner() {
         if(isProcessingAbsen) return; 
         document.getElementById('selfie-modal').style.display = 'flex';
-        
-        // Cek pengaturan Admin untuk menampilkan/menyembunyikan tombol UI Bypass
-        if (state.instansi.ui_bypass === 'hide') {
-            document.getElementById('ui-btn-batal').style.display = 'none';
-            document.getElementById('ui-btn-manual').style.display = 'none';
-        } else {
-            document.getElementById('ui-btn-batal').style.display = 'flex';
-            document.getElementById('ui-btn-manual').style.display = 'none';
-        }
-
+        document.getElementById('manual-capture-btn').style.display = 'none';
         document.getElementById('selfie-scan-line').style.display = 'none';
         
         const instruction = document.getElementById('selfie-instruction'); const boxUi = document.getElementById('scanner-box-ui');
-        instruction.innerText = "Membuka Kamera Wajah..."; instruction.style.color = "white"; boxUi.style.borderColor = "#334155"; boxUi.style.boxShadow = "0 0 50px rgba(0,0,0,0.5)";
+        instruction.innerText = "Membuka Kamera Wajah..."; instruction.style.color = "white"; boxUi.style.borderColor = "#64748B"; 
         faceDetectCounter = 0;
         const video = document.getElementById('selfie-video');
         
@@ -1131,14 +1120,13 @@
                         tracker.on('track', function(event) {
                             if (event.data.length === 0) {
                                 instruction.innerText = "Wajah tidak terdeteksi. Lihat ke kamera!"; 
-                                instruction.style.color = "#F87171"; boxUi.style.borderColor = "#EF4444"; boxUi.style.boxShadow = "0 0 40px rgba(239, 68, 68, 0.5)"; 
+                                instruction.style.color = "#F87171"; boxUi.style.borderColor = "#EF4444"; boxUi.style.boxShadow = "0 0 40px rgba(239, 68, 68, 0.4), inset 0 0 20px rgba(0,0,0,0.5)"; 
                                 faceDetectCounter = 0;
                             } else {
                                 faceDetectCounter++; 
-                                const percent = Math.min(Math.round((faceDetectCounter / 15) * 100), 100);
-                                instruction.innerText = `Memindai Wajah... ${percent}%`; 
-                                instruction.style.color = "#4ADE80"; boxUi.style.borderColor = "#4ADE80"; boxUi.style.boxShadow = "0 0 50px rgba(74, 222, 128, 0.4)";
-                                if (faceDetectCounter >= 15) { 
+                                instruction.innerText = "Tahan Posisi... (" + faceDetectCounter + "/10)"; 
+                                instruction.style.color = "#4ADE80"; boxUi.style.borderColor = "#4ADE80"; boxUi.style.boxShadow = "0 0 40px rgba(74, 222, 128, 0.6), inset 0 0 20px rgba(0,0,0,0.5)";
+                                if (faceDetectCounter >= 10) { 
                                     if(trackerTask) trackerTask.stop(); 
                                     clearTimeout(fallbackTimer); 
                                     captureSelfieAndIdentify(); 
@@ -1147,18 +1135,16 @@
                         });
                     } catch (e) {
                         console.error("AI Face Tracker Error:", e);
-                        if (state.instansi.ui_bypass !== 'hide') {
-                            document.getElementById('ui-btn-manual').style.display = 'flex'; 
-                            instruction.innerText = "Posisikan wajah lalu klik Ambil Foto.";
-                        }
+                        document.getElementById('manual-capture-btn').style.display = 'block'; 
+                        instruction.innerText = "Posisikan wajah lalu klik Ambil Foto.";
                     }
                 }).catch(err => console.error("Gagal memutar video:", err));
             };
 
             fallbackTimer = setTimeout(() => {
-                if(document.getElementById('selfie-modal').style.display === 'flex' && state.instansi.ui_bypass !== 'hide') { 
-                    document.getElementById('ui-btn-manual').style.display = 'flex'; 
-                    instruction.innerText = "Deteksi sulit? Klik tombol Ambil Foto manual."; 
+                if(document.getElementById('selfie-modal').style.display === 'flex') { 
+                    document.getElementById('manual-capture-btn').style.display = 'block'; 
+                    instruction.innerText = "Deteksi sulit? Klik tombol di bawah."; 
                     instruction.style.color = "#FBBF24"; 
                 }
             }, 5000);
@@ -1179,19 +1165,14 @@
         if(isProcessingAbsen) return;
         isProcessingAbsen = true; 
         
-        const manualBtn = document.getElementById('manual-capture-btn');
-        if(manualBtn) {
-            manualBtn.style.opacity = '0.5';
-            manualBtn.style.pointerEvents = 'none';
-        }
+        document.getElementById('manual-capture-btn').style.opacity = '0.5';
+        document.getElementById('manual-capture-btn').style.pointerEvents = 'none';
 
-        // Cek Setelan Audio Admin
-        if(state.instansi.ui_audio !== 'off') {
-            const audio = document.getElementById('scan-sound'); 
-            if(audio) {
-                audio.currentTime = 0;
-                audio.play().catch(e => console.warn("Audio play blocked", e));
-            }
+        // BUG FIX: Menggunakan elemen audio yang sudah ada di HTML, hindari pembuatan class Audio baru yang berisiko memicu vibrasi aneh di HP Android.
+        const audio = document.getElementById('scan-sound'); 
+        if(audio) {
+            audio.currentTime = 0;
+            audio.play().catch(e => console.warn("Audio play blocked", e));
         }
 
         const video = document.getElementById('selfie-video'); const canvas = document.getElementById('selfie-canvas');
@@ -1203,10 +1184,8 @@
         document.getElementById('selfie-modal').style.display = 'none';
         
         isProcessingAbsen = false; 
-        if(manualBtn) {
-            manualBtn.style.opacity = '1';
-            manualBtn.style.pointerEvents = 'auto';
-        }
+        document.getElementById('manual-capture-btn').style.opacity = '1';
+        document.getElementById('manual-capture-btn').style.pointerEvents = 'auto';
 
         openIdentifyModal();
     }
@@ -1214,12 +1193,9 @@
     function stopSelfieCamera() { if (trackerTask) { trackerTask.stop(); trackerTask = null; } if (selfieStream) { selfieStream.getTracks().forEach(track => track.stop()); selfieStream = null; } }
     
     function cancelSelfie() { 
-        isProcessingAbsen = false; 
-        stopSelfieCamera(); 
-        clearTimeout(fallbackTimer); 
+        isProcessingAbsen = false; stopSelfieCamera(); clearTimeout(fallbackTimer); 
         document.getElementById('selfie-modal').style.display = 'none'; 
-        tempSelfieBase64 = null;
-        pendingAbsenType = null;
+        tempSelfieBase64 = null; pendingAbsenType = null;
     }
 
     function openIdentifyModal() {
@@ -1228,52 +1204,6 @@
         document.getElementById('select-emp-modal').style.display = 'flex';
     }
 
-    function renderGeneralEmpList(keyword) {
-        const container = document.getElementById('general-emp-list'); const kw = keyword.toLowerCase();
-        
-        // FIX: Proteksi pencegah Error jika nama kosong
-        const filtered = state.employees.filter(e => {
-            const safeName = (e.name || '').toLowerCase();
-            return e.status !== 'Non-Aktif' && safeName.includes(kw);
-        }).sort((a,b) => String(a.name || '').localeCompare(String(b.name || '')));
-        
-        if(filtered.length === 0) { container.innerHTML = '<div style="text-align:center; padding:30px; color:var(--text-muted); font-style:italic;">Nama tidak ditemukan.</div>'; return; }
-
-        container.innerHTML = filtered.map(e => {
-            // FIX: Validasi Anti-Ganda pada Daftar Pilih Nama
-            const scansToday = state.recentScans.filter(s => String(s.id) === String(e.id));
-            const hasMasuk = scansToday.some(s => s.status === 'Masuk');
-            const hasPulang = scansToday.some(s => s.status === 'Pulang');
-            
-            let isBlocked = false;
-            let blockReason = "";
-            if (pendingAbsenType === 'Masuk' && hasMasuk) { isBlocked = true; blockReason = "Sudah Masuk"; }
-            if (pendingAbsenType === 'Pulang' && hasPulang) { isBlocked = true; blockReason = "Sudah Pulang"; }
-
-            if (isBlocked) {
-                return `
-                <div class="emp-item" style="background:#F1F5F9; border-radius:12px; border:1px solid #E2E8F0; padding:10px 14px; opacity:0.6;">
-                    <div class="emp-left" style="gap:12px;">
-                        <img src="${e.photo || `https://ui-avatars.com/api/?name=${e.name}&background=random`}" class="emp-img" loading="lazy" style="width:40px; height:40px; filter:grayscale(1);">
-                        <div class="emp-details"><span class="emp-name" style="font-size:0.95rem; text-decoration:line-through;">${e.name || '-'}</span><span style="font-size:0.75rem; color:var(--text-muted);">${e.region || '-'}</span></div>
-                    </div>
-                    <div style="background:#FEE2E2; color:#B91C1C; padding:4px 8px; border-radius:6px; font-size:0.65rem; font-weight:bold;">${blockReason}</div>
-                </div>`;
-            } else {
-                return `
-                <div class="emp-item" style="cursor:pointer; background:#FFFFFF; border-radius:12px; border:1px solid #E2E8F0; padding:10px 14px; box-shadow: 0 2px 5px rgba(0,0,0,0.02);" onclick="finalizeAbsen('${e.id}')">
-                    <div class="emp-left" style="gap:12px;">
-                        <img src="${e.photo || `https://ui-avatars.com/api/?name=${e.name}&background=random`}" class="emp-img" loading="lazy" style="width:40px; height:40px;">
-                        <div class="emp-details"><span class="emp-name" style="font-size:0.95rem;">${e.name || '-'}</span><span style="font-size:0.75rem; color:var(--text-muted);">${e.region || '-'} • ${e.role || '-'}</span></div>
-                    </div>
-                    <div style="background:#EFF6FF; border:1px solid #BFDBFE; padding:6px 12px; border-radius:8px; color:var(--primary); font-size:0.75rem; font-weight:bold;">Pilih</div>
-                </div>`;
-            }
-        }).join('');
-    }
-
-    function filterGeneralEmp(kw) { renderGeneralEmpList(kw); }
-
     function openStandaloneQRScanner() {
         closeModal('select-emp-modal');
         document.getElementById('standalone-qr-modal').style.display = 'flex';
@@ -1281,10 +1211,7 @@
         if (!html5QrcodeScanner) { 
             html5QrcodeScanner = new Html5QrcodeScanner("standalone-reader", { fps: 10, qrbox: {width: 250, height: 250} }, false); 
             html5QrcodeScanner.render((decodedText) => {
-                if(state.instansi.ui_audio !== 'off') {
-                    const audio = document.getElementById('scan-sound'); 
-                    if(audio) { audio.currentTime = 0; audio.play().catch(e=>console.warn(e)); }
-                }
+                const audio = document.getElementById('scan-sound'); if(audio) audio.play();
                 if (decodedText !== GENERAL_QR_CODE) {
                     if(html5QrcodeScanner) { html5QrcodeScanner.clear().catch(e=>console.warn(e)); html5QrcodeScanner=null;}
                     finalizeAbsen(decodedText);
@@ -1299,21 +1226,16 @@
         document.getElementById('select-emp-modal').style.display = 'flex'; 
     }
 
-    function cancelAbsenFlow() {
-        closeModal('select-emp-modal');
-        tempSelfieBase64 = null;
-        pendingAbsenType = null;
-    }
+    function cancelAbsenFlow() { closeModal('select-emp-modal'); tempSelfieBase64 = null; pendingAbsenType = null; }
 
     function finalizeAbsen(id) {
         closeModal('select-emp-modal');
         closeModal('standalone-qr-modal'); 
-        if(html5QrcodeScanner) { html5QrcodeScanner.clear().catch(e=>console.warn(e)); html5QrcodeScanner=null;}
         
         const emp = state.employees.find(e => String(e.id) === String(id));
         if(!emp) { showToast("Peringatan", "Data pegawai tidak valid atau ID salah!", "error"); return; }
         
-        // FIX: DOUBLE CHECK ABSENSI GANDA Sesaat Sebelum Mengirim
+        // BUG FIX: VALIDASI ABSENSI GANDA (STATUS DETECTION)
         const scansToday = state.recentScans.filter(s => String(s.id) === String(id));
         const hasMasuk = scansToday.some(s => s.status === 'Masuk');
         const hasPulang = scansToday.some(s => s.status === 'Pulang');
@@ -1347,7 +1269,27 @@
         finally { showLoading(false); tempSelfieBase64 = null; pendingAbsenType = null; }
     }
 
-    // === TAMPILKAN QR INDIVIDU ADMIN ===
+    // FUNGSI LOGIKA MEMILIH NAMA
+    function renderGeneralEmpList(keyword) {
+        const container = document.getElementById('general-emp-list'); const kw = keyword.toLowerCase();
+        const filtered = state.employees.filter(e => e.status !== 'Non-Aktif' && String(e.name || '').toLowerCase().includes(kw)).sort((a,b) => String(a.name || '').localeCompare(String(b.name || '')));
+        
+        if(filtered.length === 0) { container.innerHTML = '<div style="text-align:center; padding:30px; color:var(--text-muted); font-style:italic;">Nama tidak ditemukan.</div>'; return; }
+
+        container.innerHTML = filtered.map(e => `
+            <div class="emp-item" style="cursor:pointer; background:#FFFFFF; border-radius:12px; border:1px solid #E2E8F0; padding:10px 14px; box-shadow: 0 2px 5px rgba(0,0,0,0.02);" onclick="finalizeAbsen('${e.id}')">
+                <div class="emp-left" style="gap:12px;">
+                    <img src="${e.photo || `https://ui-avatars.com/api/?name=${e.name}&background=random`}" class="emp-img" loading="lazy" style="width:40px; height:40px;">
+                    <div class="emp-details"><span class="emp-name" style="font-size:0.95rem;">${e.name || '-'}</span><span style="font-size:0.75rem; color:var(--text-muted);">${e.region || '-'} • ${e.role || '-'}</span></div>
+                </div>
+                <div style="background:#EFF6FF; border:1px solid #BFDBFE; padding:6px 12px; border-radius:8px; color:var(--primary); font-size:0.75rem; font-weight:bold;">Pilih</div>
+            </div>
+        `).join('');
+    }
+
+    function filterGeneralEmp(kw) { renderGeneralEmpList(kw); }
+
+    // === TAMPILKAN QR INDIVIDU ===
     function showQR(id, name) { document.getElementById('qr-image').src = `https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${id}`; document.getElementById('qr-name').innerText = name || ''; document.getElementById('qr-modal').style.display = 'flex'; }
     function showGeneralQR() { document.getElementById('qr-image').src = `https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${GENERAL_QR_CODE}`; document.getElementById('qr-name').innerText = "QR ABSENSI KANTOR"; document.getElementById('qr-modal').style.display = 'flex'; }
 
@@ -1526,28 +1468,6 @@
             <div id="tab-instansi" style="display:none;">
                 <div class="card">
                     <h3 style="margin-bottom:16px;">Pengaturan Instansi & Keamanan</h3>
-                    
-                    <!-- NEW: PENGATURAN UI KAMERA ADMIN -->
-                    <div class="form-group" style="margin-bottom:24px; padding:16px; background:#F8FAFC; border:1px solid #CBD5E1; border-radius:12px;">
-                        <label class="form-label" style="color:var(--text-main); font-weight:800;"><i class="fa-solid fa-camera-retro"></i> Setelan Kamera Keamanan (Face Scanner)</label>
-                        <div style="display:grid; grid-template-columns: 1fr 1fr; gap:12px; margin-top:12px;">
-                            <div>
-                                <label class="form-label" style="font-size:0.75rem;">Tombol Bypass (Batal/Foto Manual)</label>
-                                <select id="ins-ui-bypass" class="form-input">
-                                    <option value="show" ${(!state.instansi.ui_bypass || state.instansi.ui_bypass === 'show') ? 'selected' : ''}>Tampilkan (Standar)</option>
-                                    <option value="hide" ${state.instansi.ui_bypass === 'hide' ? 'selected' : ''}>Sembunyikan (Wajib AI)</option>
-                                </select>
-                            </div>
-                            <div>
-                                <label class="form-label" style="font-size:0.75rem;">Suara Shutter Kamera</label>
-                                <select id="ins-ui-audio" class="form-input">
-                                    <option value="on" ${(!state.instansi.ui_audio || state.instansi.ui_audio === 'on') ? 'selected' : ''}>Aktif (Berdenting)</option>
-                                    <option value="off" ${state.instansi.ui_audio === 'off' ? 'selected' : ''}>Bisu (Mute)</option>
-                                </select>
-                            </div>
-                        </div>
-                    </div>
-
                     <div class="form-group" style="margin-bottom:24px; padding:16px; background:#FEF2F2; border:1px dashed #F87171; border-radius:12px;"><label class="form-label" style="color:var(--danger); font-weight:800;"><i class="fa-solid fa-bullhorn"></i> Pengumuman Berjalan (Dashboard)</label><textarea id="ins-pengumuman" class="form-input" rows="3" placeholder="Contoh: Waspada debit air naik di wilayah Porolinggo, petugas harap siaga!">${(state.instansi && state.instansi.pengumuman) ? state.instansi.pengumuman : ''}</textarea><p style="font-size:0.7rem; color:var(--danger); margin-top:6px; margin-bottom:0;">Kosongkan kolom ini jika tidak ada pengumuman darurat.</p></div>
                     <div class="form-group" style="margin-bottom:24px; padding:16px; background:#F0FDF4; border:1px dashed #4ADE80; border-radius:12px;"><label class="form-label" style="color:#166534; font-weight:800;"><i class="fa-solid fa-location-crosshairs"></i> Geofencing GPS (Area Wajib Absen)</label><div style="display:grid; grid-template-columns: 1fr 1fr; gap:12px; margin-bottom:12px;"><div><label class="form-label" style="font-size:0.75rem;">Latitude (Lintang)</label><input type="text" id="ins-lat" class="form-input" placeholder="-8.123456" value="${(state.instansi && state.instansi.lat) ? state.instansi.lat : ''}"></div><div><label class="form-label" style="font-size:0.75rem;">Longitude (Bujur)</label><input type="text" id="ins-lng" class="form-input" placeholder="114.123456" value="${(state.instansi && state.instansi.lng) ? state.instansi.lng : ''}"></div></div><div style="margin-bottom:16px;"><label class="form-label" style="font-size:0.75rem;">Radius Toleransi (Meter)</label><input type="number" id="ins-radius" class="form-input" placeholder="Misal: 50" value="${(state.instansi && state.instansi.radius) ? state.instansi.radius : '50'}"></div><button class="btn btn-outline btn-sm" onclick="getLocationForAdmin()" style="width:100%; border-color:#4ADE80; color:#166534;"><i class="fa-solid fa-map-pin"></i> Setel ke Lokasi Saya Saat Ini</button><p style="font-size:0.7rem; color:#166534; margin-top:10px; margin-bottom:0;">Biarkan kosong jika pegawai diizinkan memindai QR Code dari mana saja (GPS dimatikan).</p></div>
                     <div class="form-group" style="margin-bottom:16px;"><label class="form-label">Nama Instansi</label><input type="text" id="ins-nama" class="form-input" value="${(state.instansi && state.instansi.nama) ? state.instansi.nama : ''}"></div><div class="form-group" style="margin-bottom:16px;"><label class="form-label">Alamat</label><input type="text" id="ins-alamat" class="form-input" value="${(state.instansi && state.instansi.alamat) ? state.instansi.alamat : ''}"></div><div class="form-group" style="margin-bottom:16px;"><label class="form-label">Nama Kepala Dinas</label><input type="text" id="ins-kepala" class="form-input" value="${(state.instansi && state.instansi.kepala) ? state.instansi.kepala : ''}"></div><div class="form-group" style="margin-bottom:16px;"><label class="form-label">Email Resmi</label><input type="text" id="ins-email" class="form-input" value="${(state.instansi && state.instansi.email) ? state.instansi.email : ''}"></div><button class="btn btn-primary" style="width:100%;" onclick="saveInstansi()"><i class="fa-solid fa-save"></i> Simpan Perubahan</button>
@@ -1670,10 +1590,7 @@
 
     async function saveInstansi() {
         const oldInstansi = { ...state.instansi };
-        state.instansi = { ...state.instansi, 
-            nama: document.getElementById('ins-nama').value, alamat: document.getElementById('ins-alamat').value, kepala: document.getElementById('ins-kepala').value, email: document.getElementById('ins-email').value, pengumuman: document.getElementById('ins-pengumuman').value, lat: document.getElementById('ins-lat').value.replace(/,/g, '.'), lng: document.getElementById('ins-lng').value.replace(/,/g, '.'), radius: document.getElementById('ins-radius').value,
-            ui_bypass: document.getElementById('ins-ui-bypass').value, ui_audio: document.getElementById('ins-ui-audio').value
-        };
+        state.instansi = { ...state.instansi, nama: document.getElementById('ins-nama').value, alamat: document.getElementById('ins-alamat').value, kepala: document.getElementById('ins-kepala').value, email: document.getElementById('ins-email').value, pengumuman: document.getElementById('ins-pengumuman').value, lat: document.getElementById('ins-lat').value.replace(/,/g, '.'), lng: document.getElementById('ins-lng').value.replace(/,/g, '.'), radius: document.getElementById('ins-radius').value };
         const success = await saveData(); 
         if(success) { renderAdmin(document.getElementById('main-content')); switchTab('instansi'); showToast("Tersimpan", "Pengaturan Instansi Disimpan!", "success"); } 
         else { state.instansi = oldInstansi; }
