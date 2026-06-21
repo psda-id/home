@@ -624,6 +624,7 @@
     let calendarDate = new Date(); let selectedDateStr = new Date().toISOString().split('T')[0];
     let currentFileBase64 = null; let heroInterval; let html5QrcodeScanner; 
     let searchTimeout; let adminSearchTimeout; let userLocation = null; 
+    let isScannerRunning = false;
     const GENERAL_QR_CODE = "EJAKA_GENERAL_ABSENSI_2026";
     let deferredPrompt;
 
@@ -708,8 +709,17 @@
 
     function navigateTo(page) {
         if(page === 'admin' && !state.isAdmin) { document.getElementById('login-modal').style.display = 'flex'; document.getElementById('admin-pass').value = ''; return; }
-        if(html5QrcodeScanner) { html5QrcodeScanner.clear(); html5QrcodeScanner = null; } 
-        if(window.scanMap) { window.scanMap.remove(); window.scanMap = null; }
+        
+        if (gpsWatchId) { navigator.geolocation.clearWatch(gpsWatchId); gpsWatchId = null; }
+        
+        if(html5QrcodeScanner) { 
+            html5QrcodeScanner.clear().catch(e => console.warn(e)); 
+            html5QrcodeScanner = null; 
+            isScannerRunning = false;
+        } 
+        
+        if(window.scanMap) { window.scanMap.remove(); window.scanMap = null; window.mapInitialized = false; }
+        
         document.querySelectorAll('.menu-link, .nav-btn').forEach(el => el.classList.remove('active'));
         const map = { home:0, calendar:1, scan:2, admin:3, profile:4 };
         const sb = document.querySelectorAll('.menu-link'); const nb = document.querySelectorAll('.nav-btn');
@@ -986,7 +996,10 @@
         if (gpsWatchId) navigator.geolocation.clearWatch(gpsWatchId);
 
         if (!state.instansi || !state.instansi.lat || !state.instansi.lng || !state.instansi.radius) {
-            gpsStatus.style.display = 'none'; mapDiv.style.display = 'none'; readerContainer.style.display = 'block'; initHtml5Qrcode(); return;
+            gpsStatus.style.display = 'none'; mapDiv.style.display = 'none'; readerContainer.style.display = 'block'; 
+            isScannerRunning = true;
+            setTimeout(() => initHtml5Qrcode(), 100); 
+            return;
         }
 
         if (navigator.geolocation) {
@@ -1021,12 +1034,20 @@
                     if (isInside) {
                         gpsStatus.innerHTML = `<i class="fa-solid fa-circle-check"></i> Sinyal GPS Kuat. Anda berada di area kantor (${Math.round(distance)} meter).`;
                         gpsStatus.style.background = '#DCFCE7'; gpsStatus.style.color = '#166534'; gpsStatus.style.borderColor = '#86EFAC';
-                        readerContainer.style.display = 'block'; initHtml5Qrcode();
+                        readerContainer.style.display = 'block'; 
+                        if (!isScannerRunning) {
+                            isScannerRunning = true;
+                            setTimeout(() => initHtml5Qrcode(), 100);
+                        }
                     } else {
                         gpsStatus.innerHTML = `<i class="fa-solid fa-triangle-exclamation"></i> GAGAL! Anda berada di luar radius absen.<br><span style="font-weight:400; font-size:0.85rem;">Jarak Anda: ${Math.round(distance)}m | Batas: ${radiusMaksimal}m</span>`;
                         gpsStatus.style.background = '#FEF2F2'; gpsStatus.style.color = '#B91C1C'; gpsStatus.style.borderColor = '#FECACA';
                         readerContainer.style.display = 'none'; 
-                        if(html5QrcodeScanner) { html5QrcodeScanner.clear(); html5QrcodeScanner = null; }
+                        if(html5QrcodeScanner && isScannerRunning) { 
+                            html5QrcodeScanner.clear().catch(e => console.warn(e)); 
+                            html5QrcodeScanner = null; 
+                            isScannerRunning = false;
+                        }
                     }
                 },
                 (error) => {
@@ -1040,21 +1061,24 @@
 
     function initHtml5Qrcode() {
         if (!html5QrcodeScanner && typeof Html5QrcodeScanner !== 'undefined') { 
-            html5QrcodeScanner = new Html5QrcodeScanner("reader", { fps: 10, qrbox: 250 }); 
-            html5QrcodeScanner.render(onScanSuccess); 
-        } 
+            html5QrcodeScanner = new Html5QrcodeScanner("reader", { fps: 10, qrbox: {width: 250, height: 250} }, /* verbose= */ false); 
+            html5QrcodeScanner.render(onScanSuccess, function(){}); // Mengabaikan error render frame untuk kebersihan log
+        } else if (typeof Html5QrcodeScanner === 'undefined') {
+            showToast("Error", "Library Scanner gagal dimuat. Periksa internet Anda.", "error");
+        }
     }
 
     function onScanSuccess(decodedText, decodedResult) {
         const audio = document.getElementById('scan-sound'); if(audio) audio.play();
         
         if(html5QrcodeScanner) { 
-            // Pastikan kamera QR benar-benar dilepas sebelum lanjut
             html5QrcodeScanner.clear().then(() => {
                 html5QrcodeScanner = null;
-                setTimeout(() => processDecodedText(decodedText), 300); // Beri sedikit jeda ekstra setelah clear
+                isScannerRunning = false;
+                setTimeout(() => processDecodedText(decodedText), 300);
             }).catch(e => {
                 html5QrcodeScanner = null;
+                isScannerRunning = false;
                 processDecodedText(decodedText);
             });
         } else {
